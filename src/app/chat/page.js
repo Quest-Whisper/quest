@@ -242,12 +242,12 @@ function Chat() {
       )}
 
         {/* Input Container - Fixed to the bottom */}
-        <div className="flex flex-col absolute bottom-[0px] left-[10px] right-[10px] w-[100%] justify-center items-center bg-white mx-auto  px-[10px]">
+        <div className="flex flex-col absolute bottom-[0px] w-[100%] justify-center items-center bg-white mx-auto  px-[10px]">
             <div className=" p-[10px] border-[1px] bg-white border-gray-300 shadow-sm max-w-[1020px] rounded-[20px] w-[100%]">
               <ChatInput onSend={handleSendMessage} isLoading={isLoading} />
             </div>
             <span className="text-center w-full m-[15px] text-[12px] text-gray-500">
-              Axe AI can make mistakes. Verify important info.
+              Quest Whisper AI can make mistakes. Verify important info.
             </span>
           </div>
     </div>

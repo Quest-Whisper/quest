@@ -54,10 +54,12 @@ export const authOptions = {
           token.picture = user.image;
           
           // Get user from database to include additional info
+          await connectToDatabase();
           const dbUser = await User.findOne({ email: user.email });
           if (dbUser) {
             token.role = dbUser.role || "user";
             token.userId = dbUser._id.toString();
+            token.hasInterests = dbUser.interests && dbUser.interests.length > 0;
           }
         }
         return token;
@@ -74,6 +76,7 @@ export const authOptions = {
           session.user.image = token.picture;
           session.user.role = token.role;
           session.user.id = token.userId;
+          session.user.hasInterests = token.hasInterests;
         }
         return session;
       } catch (error) {
@@ -113,6 +116,7 @@ export async function isAuthenticated(request) {
       email: token.email,
       name: token.name,
       role: token.role,
+      hasInterests: token.hasInterests,
       image: token.picture
     };
 

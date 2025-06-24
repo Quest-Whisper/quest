@@ -26,6 +26,14 @@ const UserSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
       required: true,
+    },
+    hasInterests:{
+      type: Boolean,
+      default: false,
+    },
+    interests: {
+      type: [String],
+      default: [],
     }
   },
   {
