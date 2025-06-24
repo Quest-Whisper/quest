@@ -43,11 +43,11 @@ async function saveChat(messages, context) {
   }
 }
 
-export async function POST(req) {
+export async function POST(request) {
   try {
     const session = await getServerSession(authOptions);
 
-    const { messages, context } = await req.json();
+    const { messages, context } = await request.json();
 
     if (!messages || !Array.isArray(messages)) {
       return NextResponse.json(
@@ -61,32 +61,6 @@ export async function POST(req) {
 
     // Get the latest user message
     const latestMessage = messages[messages.length - 1];
-
-    // // Step 1: Classify the message to determine which data to fetch
-    // console.time("topic-classification");
-    // const topics = await classifyMessage(latestMessage.content)
-    //   .catch((error) => {
-    //     console.warn("Topic classification error, using default:", error);
-    //     return ["orders_management"]; // Default if classification fails
-    //   });
-
-    // console.log("Classified topics:", topics);
-
-    // // Get the data configuration based on the classified topics
-    // const dataConfig = getTopicDataConfig(topics);
-
-    // const rawData = await fetchContextData(
-    //   dataConfig,
-    //   context.companyId,
-    //   latestMessage.content
-    // ).catch((error) => {
-    //   console.warn("Data fetching error, using minimal data:", error);
-    //   return {
-    //     recentOrders: [],
-    //     mentionedOrders: [],
-    //     mentionedTrips: [],
-    //   };
-    // });
 
     //get past messages to add to the conversation
     const pastMessages = [...messages.slice(-20)]; // Only use the last 50 user messages

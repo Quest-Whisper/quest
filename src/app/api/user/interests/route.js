@@ -3,8 +3,10 @@ import { isAuthenticated } from "@/lib/auth";
 import connectToDatabase from "@/lib/mongodb";
 import User from "@/models/User";
 
+
 export async function POST(request) {
   try {
+
     // Check if user is authenticated
     const user = await isAuthenticated(request);
     if (!user) {
