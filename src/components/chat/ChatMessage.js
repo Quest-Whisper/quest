@@ -55,6 +55,7 @@ function makeWavHeader(
 export default function ChatMessage({ message, isUser }) {
   const [parsedSources, setParsedSources] = useState([]);
   const [wavUrl, setWavUrl] = useState(null);
+  const [isHovered, setIsHovered] = useState(false);
 
   const isError = !isUser && message.isError;
   const sources = message.sources?.length ? message.sources : parsedSources;
@@ -64,7 +65,7 @@ export default function ChatMessage({ message, isUser }) {
   // AudioContext configured once
   const audioContext = useMemo(() => new AudioContext(), []);
 
-  // Extract “sources” JSON block from message.content
+  // Extract "sources" JSON block from message.content
   function getSources(text) {
     const match = text.match(/sources:\s*(\[[\s\S]*?\])/i);
     if (!match) return [];
@@ -75,7 +76,7 @@ export default function ChatMessage({ message, isUser }) {
     }
   }
 
-  // Strip out “sources:[…]” and any prefixed labels
+  // Strip out "sources:[...]" and any prefixed labels
   function removeSources(text) {
     let t = text
       .replace(/AI FINAL USER RESPONSE:\s*/i, "")
@@ -95,7 +96,7 @@ export default function ChatMessage({ message, isUser }) {
         .replace(/```[\s\S]*?```/g, "")
         // Unwrap inline code `…`
         .replace(/`([^`\n]+)`/g, "$1")
-        // Remove ATX headings (e.g. “### Heading” → “Heading”)
+        // Remove ATX headings (e.g. "### Heading" → "Heading")
         .replace(/^#{1,6}\s*(.*)$/gm, "$1")
         // Remove setext headings (overlines/underlines)
         .replace(/^(?:=+|-+)\s*$/gm, "")
@@ -111,7 +112,7 @@ export default function ChatMessage({ message, isUser }) {
         .replace(/^\s{0,3}>\s?/gm, "")
         // Remove unordered list markers -, *, +
         .replace(/^\s*([-*+])\s+/gm, "")
-        // Remove ordered list numbers “1. ”
+        // Remove ordered list numbers "1. "
         .replace(/^\s*\d+\.\s+/gm, "")
         // Remove horizontal rules (---, ***, ___)
         .replace(/^(?:-{3,}|\*{3,}|_{3,})\s*$/gm, "")
@@ -126,34 +127,55 @@ export default function ChatMessage({ message, isUser }) {
   // Custom components for ReactMarkdown
   const components = {
     h1: ({ node, ...props }) => (
-      <h1 className="text-2xl font-bold mb-[20px]" {...props} />
+      <h1 className="text-2xl font-bold mb-6 text-slate-800 leading-tight" {...props} />
     ),
     h2: ({ node, ...props }) => (
-      <h2 className="text-xl font-bold mt-[40px]" {...props} />
+      <h2 className="text-xl font-bold mt-8 mb-4 text-slate-800 leading-tight" {...props} />
     ),
     h3: ({ node, ...props }) => (
-      <h3 className="text-lg font-bold mb-[20px]" {...props} />
+      <h3 className="text-lg font-bold mb-4 text-slate-700 leading-tight" {...props} />
     ),
     h4: ({ node, ...props }) => (
-      <h4 className="text-base font-bold my-[4px]" {...props} />
+      <h4 className="text-base font-semibold mb-3 text-slate-700" {...props} />
     ),
     h5: ({ node, ...props }) => (
-      <h5 className="text-base font-semibold my-[3px]" {...props} />
+      <h5 className="text-sm font-semibold mb-2 text-slate-600" {...props} />
     ),
     h6: ({ node, ...props }) => (
-      <h6 className="text-sm font-semibold my-[3px]" {...props} />
+      <h6 className="text-sm font-medium mb-2 text-slate-600" {...props} />
     ),
-    p: ({ node, ...props }) => <p className="my-[5px]" {...props} />,
+    p: ({ node, ...props }) => (
+      <p className="mb-4 text-slate-700 leading-relaxed" {...props} />
+    ),
     ul: ({ node, ...props }) => (
-      <ul className="list-disc pl-5 my-[4px]" {...props} />
+      <ul className="list-disc pl-6 mb-4 space-y-2 text-slate-700" {...props} />
     ),
     ol: ({ node, ...props }) => (
-      <ol className="list-decimal pl-5 my-[15]" {...props} />
+      <ol className="list-decimal pl-6 mb-4 space-y-2 text-slate-700" {...props} />
     ),
-    li: ({ node, ...props }) => <li className="my-[6px]" {...props} />,
-    // Add a wrapper component that will handle the whitespace classes
-    root: ({ node, ...props }) => (
-      <div className="whitespace-pre-line" {...props} />
+    li: ({ node, ...props }) => (
+      <li className="leading-relaxed" {...props} />
+    ),
+    blockquote: ({ node, ...props }) => (
+      <blockquote className="border-l-4 border-blue-200 pl-4 italic text-slate-600 my-4 bg-blue-50/50 py-2 rounded-r-lg" {...props} />
+    ),
+    code: ({ node, inline, ...props }) => 
+      inline ? (
+        <code className="bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded text-sm font-mono" {...props} />
+      ) : (
+        <code className="block bg-slate-900 text-slate-100 p-4 rounded-lg text-sm font-mono overflow-x-auto" {...props} />
+      ),
+    pre: ({ node, ...props }) => (
+      <pre className="bg-slate-900 rounded-lg overflow-hidden my-4" {...props} />
+    ),
+    strong: ({ node, ...props }) => (
+      <strong className="font-semibold text-slate-800" {...props} />
+    ),
+    em: ({ node, ...props }) => (
+      <em className="italic text-slate-700" {...props} />
+    ),
+    a: ({ node, ...props }) => (
+      <a className="text-blue-600 hover:text-blue-700 underline underline-offset-2 transition-colors" {...props} />
     ),
   };
 
@@ -190,7 +212,12 @@ export default function ChatMessage({ message, isUser }) {
 
   const copyText = async () => {
     await navigator.clipboard.writeText(message.content || "");
-    toast.success("Copied");
+    toast.success("Copied to clipboard!", {
+      style: {
+        background: '#10b981',
+        color: 'white',
+      },
+    });
   };
 
   return (
@@ -198,98 +225,156 @@ export default function ChatMessage({ message, isUser }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
-      transition={{ duration: 0.3 }}
-      className={`flex ${isUser ? "justify-end" : "justify-start"} mb-6`}
+      transition={{ duration: 0.4, ease: "easeOut" }}
+      className="w-full group" 
+      onHoverStart={() => setIsHovered(true)}
+      onHoverEnd={() => setIsHovered(false)}
     >
-      <div
-        className={`flex flex-col ${
-          isUser ? "items-end max-w-[60%]" : "items-start w-full max-w-[100%]"
-        }`}
-      >
+      <div className="max-w-4xl mx-auto px-4 py-2">
         <div
-          className={`rounded-[60px] px-[15px] py-[5px] ${
-            isUser
-              ? "bg-gray-100 text-black"
-              : isError
-              ? "text-red-800"
-              : "bg-white text-gray-900"
+          className={`flex flex-col ${
+            isUser ? "items-end" : "items-start"
           }`}
         >
+          <motion.div
+            className={`${
+              isUser 
+                ? "bg-slate-200 rounded-3xl px-4 pt-[12px] max-w-[70%] flex items-center"
+                : isError
+                ? "bg-red-50 border border-red-200 text-red-800 rounded-xl px-4 py-3"
+                : "w-full"
+            }`}
+            whileHover={isUser ? { 
+              transition: { duration: 0.2 }
+            } : !isError ? { 
+              transition: { duration: 0.2 }
+            } : {}}
+            transition={{ duration: 0.2 }}
+          >
+
+
+
           {hasDisplayImage && (
-            <div className="mt-4 flex justify-center">
+            <motion.div 
+              className="mb-6 flex justify-center"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.2 }}
+            >
               <img
                 src={message.displayImage}
-                className="rounded-[60px] h-[300px] w-[450px] object-cover mb-[50px]"
+                className="rounded-xl max-h-80 w-auto object-cover shadow-md"
+                alt="AI generated image"
               />
-            </div>
+            </motion.div>
           )}
 
           {isError && (
-            <span className="flex items-center gap-1 text-red-600 font-medium">
-              <ExclamationTriangleIcon className="h-4 w-4" />
-              Oops!
-            </span>
+            <motion.div 
+              className="flex items-center gap-2 mb-3"
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+            >
+              <ExclamationTriangleIcon className="h-5 w-5 text-red-500" />
+              <span className="font-semibold text-red-700">Something went wrong</span>
+            </motion.div>
           )}
 
-          <article className="text-[15px] mx-auto p-[10px] space-y-[4px]">
+          <motion.article 
+            className="text-[16px] leading-relaxed text-slate-800"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.1 }}
+          >
             <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
               {removeSources(message.content)}
             </ReactMarkdown>
-          </article>
+          </motion.article>
 
           {hasSources && (
-                <div className="mt-4 border-t border-gray-200 pt-3">
-                  <p className="text-xs font-medium text-gray-700 mb-2">
-                    Sources:
-                  </p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {sources.map((source, index) => (
-                      <a
-                        key={index}
-                        href={source.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-start gap-3 p-2 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
-                      >
-                        {source.image && (
-                          <div className="flex-shrink-0 w-16 h-16 overflow-hidden rounded-md">
-                            <img
-                              src={source.image}
-                              alt={source.title}
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">
-                            {source.title}
-                          </p>
-                          <div className="flex items-center text-xs text-blue-600 mt-1">
-                            <span className="truncate">Visit source</span>
-                            <ArrowTopRightOnSquareIcon className="h-3 w-3 ml-1" />
-                          </div>
-                        </div>
-                      </a>
-                    ))}
+            <motion.div 
+              className="mt-6 pt-4 border-t border-slate-200"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+            >
+              <p className="text-xs font-semibold text-slate-600 mb-3 uppercase tracking-wide">
+                Sources
+              </p>
+              <div className="grid grid-cols-1 gap-3">
+                {sources.map((source, index) => (
+                  <motion.a
+                    key={index}
+                    href={source.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-start gap-3 p-3 rounded-xl border border-slate-200 hover:border-blue-200 hover:bg-blue-50/50 transition-all duration-200 group/source"
+                    whileHover={{ scale: 1.02 }}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.4 + index * 0.1 }}
+                  >
+                    {source.image && (
+                      <div className="flex-shrink-0 w-16 h-16 overflow-hidden rounded-lg">
+                        <img
+                          src={source.image}
+                          alt={source.title}
+                          className="w-full h-full object-cover group-hover/source:scale-105 transition-transform duration-200"
+                        />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-900 line-clamp-2 group-hover/source:text-blue-700 transition-colors">
+                        {source.title}
+                      </p>
+                      <div className="flex items-center text-xs text-blue-600 mt-2 group-hover/source:text-blue-700">
+                        <span className="truncate font-medium">Visit source</span>
+                        <ArrowTopRightOnSquareIcon className="h-3 w-3 ml-1 group-hover/source:translate-x-0.5 group-hover/source:-translate-y-0.5 transition-transform" />
+                      </div>
+                    </div>
+                  </motion.a>
+                ))}
               </div>
-            </div>
+            </motion.div>
           )}
-        </div>
+        </motion.div>
 
-        <div className="flex items-center gap-4 mt-2 ml-4">
-          <ClipboardDocumentIcon
-            onClick={copyText}
-            className="h-5 w-5 cursor-pointer"
-          />
-          {/* {!isUser && (
-            <>
-              <MicrophoneIcon
+          {/* Action buttons positioned under the bubble */}
+          <motion.div 
+            className="flex items-center gap-2 mt-1"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: isHovered ? 1 : 0.4 }}
+            transition={{ duration: 0.2 }}
+          >
+            <motion.button
+              onClick={copyText}
+              className="p-1.5 rounded-md hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-all duration-200"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <ClipboardDocumentIcon className="h-3.5 w-3.5" />
+            </motion.button>
+            
+            {!isUser && (
+              <motion.button
                 onClick={() => fetchAndPlay(message.content)}
-                className="h-5 w-5 text-black-500 cursor-pointer"
+                className="p-1.5 rounded-md hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-all duration-200"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <MicrophoneIcon className="h-3.5 w-3.5" />
+              </motion.button>
+            )}
+            
+            {wavUrl && (
+              <motion.audio 
+                src={wavUrl} 
+                className="ml-2" 
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
               />
-              {wavUrl && <audio src={wavUrl} className="ml-2" />}
-            </>
-          )} */}
+            )}
+          </motion.div>
         </div>
       </div>
     </motion.div>

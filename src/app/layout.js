@@ -2,6 +2,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import UserAuthSessionProvider from "@/providers/UserAuthSessionProvider";
 import HeroUIThemeProvider from "@/providers/HeroUIThemeProvider";
+import { Toaster } from 'react-hot-toast';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -25,6 +26,7 @@ export default function RootLayout({ children }) {
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <UserAuthSessionProvider>
+        <Toaster position="top-right" />
           <HeroUIThemeProvider>
             <main>{children}</main>
           </HeroUIThemeProvider>
