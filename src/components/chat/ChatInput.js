@@ -48,7 +48,7 @@ export default function ChatInput({ onSend, isLoading }) {
           )}
         </AnimatePresence>
 
-        <div className="relative flex items-end gap-3 p-2">
+        <div className="relative flex items-end gap-3 pb-4 px-2">
           <div className="flex-1 relative">
             <TextareaAutosize
               ref={textareaRef}
@@ -74,20 +74,6 @@ export default function ChatInput({ onSend, isLoading }) {
                 lineHeight: '1.5',
               }}
             />
-
-            {/* Character count for longer messages */}
-            <AnimatePresence>
-              {message.length > 500 && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 10 }}
-                  className="absolute bottom-1 left-2 text-xs text-slate-400"
-                >
-                  {message.length}/2000
-                </motion.div>
-              )}
-            </AnimatePresence>
           </div>
 
           {/* Enhanced Send Button */}
@@ -221,45 +207,8 @@ export default function ChatInput({ onSend, isLoading }) {
               )}
             </motion.div>
 
-            {/* Tooltip */}
-            <AnimatePresence>
-              {!isLoading && message.trim() && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10, scale: 0.9 }}
-                  animate={{ opacity: 0 }}
-                  whileHover={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 10, scale: 0.9 }}
-                  transition={{ duration: 0.2, delay: 0.5 }}
-                  className="absolute -top-10 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-slate-800 text-white text-xs rounded-md whitespace-nowrap pointer-events-none"
-                >
-                  Send message
-                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-2 border-r-2 border-t-2 border-transparent border-t-slate-800"></div>
-                </motion.div>
-              )}
-            </AnimatePresence>
           </motion.button>
         </div>
-
-        {/* Helpful hints */}
-        <AnimatePresence>
-          {!message && !isFocused && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="absolute -bottom-8 left-4 flex items-center gap-4 text-xs text-slate-400"
-            >
-              <span className="flex items-center gap-1">
-                <kbd className="px-1.5 py-0.5 bg-slate-100 rounded text-xs font-mono">⏎</kbd>
-                to send
-              </span>
-              <span className="flex items-center gap-1">
-                <kbd className="px-1.5 py-0.5 bg-slate-100 rounded text-xs font-mono">⇧⏎</kbd>
-                for new line
-              </span>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         {/* Focus ring */}
         <motion.div
@@ -267,7 +216,7 @@ export default function ChatInput({ onSend, isLoading }) {
           animate={{
             borderColor: isFocused 
               ? "rgba(59, 130, 246, 0.3)" 
-              : "rgba(0, 0, 0, 0)",
+              : "rgba(36, 36, 36, 0.3)",
           }}
           transition={{ duration: 0.2 }}
         />

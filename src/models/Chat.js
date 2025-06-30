@@ -6,10 +6,17 @@ const chatSchema = new mongoose.Schema({
     ref: 'User',
     required: true,
   },
+  title: {
+    type: String,
+    required: true,
+    trim: true,
+    maxlength: 100,
+  },
   messages: [{
     role: {
       type: String,
       required: true,
+      enum: ['user', 'model', 'assistant'],
     },
     content: {
       type: String,
@@ -18,6 +25,10 @@ const chatSchema = new mongoose.Schema({
     timestamp: {
       type: Date,
       default: Date.now,
+    },
+    user: {
+      name: String,
+      email: String,
     }
   }],
   createdAt: {
@@ -30,11 +41,29 @@ const chatSchema = new mongoose.Schema({
   },
 });
 
+// Create index for efficient querying
+chatSchema.index({ userId: 1, updatedAt: -1 });
+
 // Update the updatedAt timestamp before saving
 chatSchema.pre('save', function(next) {
   this.updatedAt = Date.now();
   next();
 });
+
+// Helper method to generate title from first message
+chatSchema.statics.generateTitle = function(firstMessage) {
+  if (!firstMessage) return 'New Chat';
+  
+  // Clean the message and truncate to create title
+  const cleaned = firstMessage.trim().replace(/\s+/g, ' ');
+  if (cleaned.length <= 50) return cleaned;
+  
+  // Find a good breaking point
+  const truncated = cleaned.substring(0, 47);
+  const lastSpace = truncated.lastIndexOf(' ');
+  
+  return lastSpace > 20 ? truncated.substring(0, lastSpace) + '...' : truncated + '...';
+};
 
 const Chat = mongoose.models.Chat || mongoose.model('Chat', chatSchema);
 

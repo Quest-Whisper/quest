@@ -14,7 +14,6 @@ import {
 } from "@heroicons/react/24/outline";
 import ChatMessage from "./ChatMessage";
 import ChatInput from "./ChatInput";
-import ChatHistoryModal from "./ChatHistoryModal";
 import { CopyAll } from "@mui/icons-material";
 
 export default function ChatContainer() {
@@ -22,30 +21,17 @@ export default function ChatContainer() {
   const [isLoading, setIsLoading] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [hasHistory, setHasHistory] = useState(false);
-  const [savedConversations, setSavedConversations] = useState([]);
-  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
-  const [activeConversationIndex, setActiveConversationIndex] = useState(null);
   const messagesEndRef = useRef(null);
   const { data: session } = useSession();
 
   // Load messages from localStorage when component mounts
   useEffect(() => {
     const storedMessages = localStorage.getItem("chatMessages");
-    const storedConversationIndex = localStorage.getItem(
-      "activeConversationIndex"
-    );
 
     if (storedMessages && JSON.parse(storedMessages).length > 0) {
       setMessages(JSON.parse(storedMessages));
       setHasHistory(true);
-
-      if (storedConversationIndex !== null) {
-        setActiveConversationIndex(parseInt(storedConversationIndex, 10));
-      }
     }
-
-    // Load saved conversation history
-    loadSavedConversations();
   }, []);
 
   // Save messages to localStorage whenever they change
@@ -53,34 +39,8 @@ export default function ChatContainer() {
     if (messages.length > 0) {
       localStorage.setItem("chatMessages", JSON.stringify(messages));
       setHasHistory(messages.length > 0);
-
-      if (activeConversationIndex !== null) {
-        localStorage.setItem(
-          "activeConversationIndex",
-          activeConversationIndex.toString()
-        );
-
-        // Also update the conversation in the saved conversations list
-        if (messages.length > 0) {
-          const updatedConversations = [...savedConversations];
-          updatedConversations[activeConversationIndex] = messages;
-          setSavedConversations(updatedConversations);
-          localStorage.setItem(
-            "savedConversations",
-            JSON.stringify(updatedConversations)
-          );
-        }
-      }
     }
-  }, [messages, activeConversationIndex]);
-
-  // Function to load saved conversations from localStorage
-  const loadSavedConversations = () => {
-    const storedConversations = localStorage.getItem("savedConversations");
-    if (storedConversations) {
-      setSavedConversations(JSON.parse(storedConversations));
-    }
-  };
+  }, [messages]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -159,13 +119,7 @@ export default function ChatContainer() {
               content,
               user,
             })
-          ),
-          context: {
-            companyId: session?.user?.companyId,
-            companyName: session?.user?.name,
-            userEmail: session?.user?.email,
-            userCurrency: session?.user?.currency,
-          },
+          )
         }),
       });
 
@@ -238,71 +192,9 @@ export default function ChatContainer() {
   };
 
   const handleResetConversation = () => {
-    // If the current conversation has more than just the welcome message, save it
-    if (messages.length > 0) {
-      if (activeConversationIndex !== null) {
-        // If we're editing an existing conversation, it's already saved
-        // Just reset without saving again
-      } else {
-        // Save as a new conversation
-        const updatedConversations = [...savedConversations, messages];
-        localStorage.setItem(
-          "savedConversations",
-          JSON.stringify(updatedConversations)
-        );
-        setSavedConversations(updatedConversations);
-      }
-    }
-
-    // Reset current conversation
     localStorage.removeItem("chatMessages");
-    localStorage.removeItem("activeConversationIndex");
     setMessages([]);
     setHasHistory(false);
-    setActiveConversationIndex(null);
-  };
-
-  const handleOpenHistoryModal = () => {
-    setIsHistoryModalOpen(true);
-  };
-
-  const handleCloseHistoryModal = () => {
-    setIsHistoryModalOpen(false);
-  };
-
-  const handleLoadConversation = (conversation, index) => {
-    setMessages(conversation);
-    setHasHistory(true);
-    setActiveConversationIndex(index);
-  };
-
-  const handleDeleteConversation = (index) => {
-    if (confirm("Are you sure you want to delete this conversation?")) {
-      // Remove the conversation from local storage
-      const updatedConversations = [...savedConversations];
-      updatedConversations.splice(index, 1);
-      localStorage.setItem(
-        "savedConversations",
-        JSON.stringify(updatedConversations)
-      );
-      setSavedConversations(updatedConversations);
-
-      // If the deleted conversation was the active one, reset
-      if (index === activeConversationIndex) {
-        setMessages([]);
-        setHasHistory(false);
-        setActiveConversationIndex(null);
-        localStorage.removeItem("activeConversationIndex");
-        localStorage.removeItem("chatMessages");
-      } else if (index < activeConversationIndex) {
-        // If the deleted conversation was before the active one, adjust the index
-        setActiveConversationIndex(activeConversationIndex - 1);
-        localStorage.setItem(
-          "activeConversationIndex",
-          (activeConversationIndex - 1).toString()
-        );
-      }
-    }
   };
 
   return (
@@ -332,16 +224,6 @@ export default function ChatContainer() {
         </div>
 
         <div className="flex gap-2">
-          <motion.button
-            onClick={handleOpenHistoryModal}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-gray-600 bg-gray-50 hover:bg-gray-100 rounded-md transition-colors"
-          >
-            <ChatBubbleLeftRightIcon className="h-4 w-4" />
-            <span>History</span>
-          </motion.button>
-
           {hasHistory && (
             <motion.button
               onClick={handleResetConversation}
@@ -454,15 +336,6 @@ export default function ChatContainer() {
           </span>
         </div>
       </div>
-
-      {/* Chat History Modal */}
-      <ChatHistoryModal
-        isOpen={isHistoryModalOpen}
-        onClose={handleCloseHistoryModal}
-        conversations={savedConversations}
-        onLoadConversation={handleLoadConversation}
-        onDeleteConversation={handleDeleteConversation}
-      />
     </div>
   );
 }
