@@ -22,19 +22,22 @@ const UserSchema = new mongoose.Schema(
       type: String,
       sparse: true,
     },
+    googleAccessToken: { type: String },
+    googleRefreshToken: { type: String },
+    googleTokenExpiresAt: { type: Date },
     hasSubscribed: {
       type: Boolean,
       default: false,
       required: true,
     },
-    hasInterests:{
+    hasInterests: {
       type: Boolean,
       default: false,
     },
     interests: {
       type: [String],
       default: [],
-    }
+    },
   },
   {
     timestamps: true,
@@ -44,4 +47,4 @@ const UserSchema = new mongoose.Schema(
 // Ensure unique email per company if needed later, for now, global unique email for users
 // UserSchema.index({ email: 1, companyId: 1 }, { unique: true });
 
-export default mongoose.models.User || mongoose.model("User", UserSchema); 
+export default mongoose.models.User || mongoose.model("User", UserSchema);

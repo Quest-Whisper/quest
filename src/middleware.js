@@ -47,14 +47,7 @@ export async function middleware(request) {
     return NextResponse.redirect(loginUrl);
   }
 
-  const interestUrl = new URL("/interests", request.url);
-
-   // Rule for /chat - Admin only
-   if (pathname.startsWith("/chat")) {
-    if (!token.hasInterests) {
-      return NextResponse.redirect(interestUrl);
-    }
-  }
+ 
 
   // If no specific rule blocks access, allow the request
   return NextResponse.next();

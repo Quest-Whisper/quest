@@ -1,7 +1,13 @@
+/** @type {import('tailwindcss').Config} */
 const { heroui } = require("@heroui/theme");
 const config = {
-  purge: [],
-  darkMode: false, // or 'media' or 'class'
+  content: [
+    "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
+    "./node_modules/@heroui/theme/dist/components/(badge|button|card|chip|date-input|date-picker|drawer|dropdown|input|input-otp|modal|pagination|popover|progress|radio|select|spinner|toggle|table|user|ripple|form|calendar|menu|divider|listbox|scroll-shadow|checkbox|spacer|avatar).js"
+  ],
+  purge: [], 
   theme: {
     extend: { 
       screens: {
@@ -12,10 +18,8 @@ const config = {
       },
     },
   },
-  variants: {
-    extend: {},
-  },
-  plugins: [heroui({ addCommonColors: true })],
+  darkMode: "class",
+  plugins: [require("@tailwindcss/forms"),require('@tailwindcss/typography'), heroui({ addCommonColors: true })],
 }
 
 export default config;

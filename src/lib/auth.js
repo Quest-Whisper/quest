@@ -3,24 +3,49 @@ import User from "@/models/User";
 import GoogleProvider from "next-auth/providers/google";
 import { getToken } from "next-auth/jwt";
 
+
 export const authOptions = {
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      authorization: {
+        params: {
+          scope: [
+            "openid",
+            "email",
+            "profile",
+            "https://www.googleapis.com/auth/drive",
+            "https://www.googleapis.com/auth/gmail.readonly", // for reading emails
+            "https://www.googleapis.com/auth/gmail.send", // for sending emails
+            "https://www.googleapis.com/auth/calendar.readonly", // for reading calender events
+            "https://www.googleapis.com/auth/calendar", // for creating calender events
+            "https://www.googleapis.com/auth/presentations",// For reading and writing presentations
+          ].join(" "),
+          access_type: "offline",
+          prompt: "consent",
+        },
+      },
     }),
   ],
   secret: process.env.NEXTAUTH_SECRET,
-  debug: process.env.NODE_ENV === 'development',
+  debug: process.env.NODE_ENV === "development",
   callbacks: {
     async signIn({ user, account, profile }) {
       if (account.provider === "google") {
         try {
           await connectToDatabase();
-          
+
           // Check if user exists
           let dbUser = await User.findOne({ email: user.email });
-          
+
+          const tokenUpdate = {
+            googleId: profile.sub,
+            googleAccessToken: account.access_token,
+            googleRefreshToken: account.refresh_token,
+            googleTokenExpiresAt: new Date(account.expires_at * 1000),
+          };
+
           // If user doesn't exist, create new user
           if (!dbUser) {
             dbUser = await User.create({
@@ -29,39 +54,52 @@ export const authOptions = {
               role: "user",
               googleId: profile.sub,
               image: user.image,
+              ...tokenUpdate,
             });
           } else {
             // Update existing user's Google ID if not set
             if (!dbUser.googleId) {
               dbUser.googleId = profile.sub;
-              await dbUser.save();
+              // Update user with new tokens if needed
+              await User.updateOne(
+                { email: user.email },
+                { $set: tokenUpdate }
+              );
             }
           }
-          
+
           return true;
         } catch (error) {
           console.error("Error in signIn callback:", error);
-          return '/auth/error?error=DatabaseError';
+          return "/auth/error?error=DatabaseError";
         }
       }
       return true;
     },
     async jwt({ token, user, account, profile }) {
       try {
-        if (account && user) {
+        if (account) {
+          token.accessToken = account.access_token;
+          token.refreshToken = account.refresh_token;
+          token.expiresAt = account.expires_at;
+          token.idToken = account.id_token;
+        }
+
+        if (user) {
           token.email = user.email;
           token.name = user.name;
           token.picture = user.image;
-          
-          // Get user from database to include additional info
+
           await connectToDatabase();
           const dbUser = await User.findOne({ email: user.email });
           if (dbUser) {
             token.role = dbUser.role || "user";
             token.userId = dbUser._id.toString();
-            token.hasInterests = dbUser.interests && dbUser.interests.length > 0;
+            token.hasInterests =
+              dbUser.interests && dbUser.interests.length > 0;
           }
         }
+
         return token;
       } catch (error) {
         console.error("Error in jwt callback:", error);
@@ -77,6 +115,9 @@ export const authOptions = {
           session.user.role = token.role;
           session.user.id = token.userId;
           session.user.hasInterests = token.hasInterests;
+          session.accessToken = token.accessToken;
+          session.refreshToken = token.refreshToken;
+          session.expiresAt = token.expiresAt;
         }
         return session;
       } catch (error) {
@@ -90,9 +131,9 @@ export const authOptions = {
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   pages: {
-    signIn: '/login',
-    error: '/auth/error',
-  }
+    signIn: "/login",
+    error: "/auth/error",
+  },
 };
 
 /**
@@ -102,27 +143,27 @@ export const authOptions = {
  */
 export async function isAuthenticated(request) {
   try {
-    const token = await getToken({ 
+    const token = await getToken({
       req: request,
-      secret: process.env.NEXTAUTH_SECRET
+      secret: process.env.NEXTAUTH_SECRET,
     });
-    
+
     if (!token) {
       return null;
     }
-    
+
     const authenticatedUser = {
       id: token.userId,
       email: token.email,
       name: token.name,
       role: token.role,
       hasInterests: token.hasInterests,
-      image: token.picture
+      image: token.picture,
     };
 
     return authenticatedUser;
   } catch (error) {
-    console.error('Authentication error in isAuthenticated:', error);
+    console.error("Authentication error in isAuthenticated:", error);
     return null;
   }
 }
