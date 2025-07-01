@@ -103,7 +103,44 @@ export default function ChatMessage({ message, isUser }) {
   const hasDisplayImage = !isUser && message.displayImage;
 
   // AudioContext configured once
-  const audioContext = useMemo(() => new AudioContext(), []);
+  const audioContext = useMemo(() => {
+    if (typeof window !== 'undefined') {
+      return new AudioContext();
+    }
+    return null;
+  }, []);
+
+  // Test function to verify AudioContext is working
+  const testAudio = async () => {
+    if (!audioContext) {
+      return false;
+    }
+
+    try {
+      // Resume if suspended
+      if (audioContext.state === "suspended") {
+        await audioContext.resume();
+      }
+
+      // Create a simple 440Hz beep for 0.2 seconds
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.frequency.setValueAtTime(440, audioContext.currentTime);
+      gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.2);
+      
+      return true;
+    } catch (error) {
+      return false;
+    }
+  };
 
   // Extract "sources" JSON block from message.content
   function getSources(text) {
@@ -246,32 +283,154 @@ export default function ChatMessage({ message, isUser }) {
 
   // NEW streaming TTS playback
   async function fetchAndPlayStreaming(text) {
-    console.log("🔍 fetchAndPlayStreaming invoked");
+    if (!audioContext) {
+      toast.error("Audio not available in this browser");
+      return;
+    }
+    
     try {
       // 1) Ensure AudioContext is resumed
       if (audioContext.state === "suspended") {
         await audioContext.resume();
-        console.log("▶️ AudioContext state:", audioContext.state);
       }
-  
+
       // 2) Kick off fetch
-      console.log("📡 Initiating fetch to /api/chat/tts");
       const res = await fetch(
         `/api/chat/tts?message=${encodeURIComponent(stripMarkdown(text))}`,
-        { cache: "no-store" }
+        { 
+          cache: "no-store",
+          headers: {
+            'Accept': 'audio/pcm',
+            'Cache-Control': 'no-cache'
+          }
+        }
       );
-      console.log("📶 fetch completed:", res.ok, res.status);
-  
+
+      if (!res.ok) {
+        throw new Error(`TTS API error: ${res.status} ${res.statusText}`);
+      }
+
       // 3) Confirm streaming support
       if (!res.body) {
-        console.error("❌ No response.body – streaming unsupported?");
-        return;
+        // Fallback to simple audio approach
+        return fetchAndPlay(text);
       }
-      console.log("🔗 Reader acquired:", res.body.getReader()); 
-  
-      // …continue your reader loop and audio graph setup…
+
+      const reader = res.body.getReader();
+
+      // 4) Set up streaming audio playback using AudioBufferSourceNode scheduling
+      const sampleRate = 24000; // PCM sample rate from Gemini
+      const chunkDurationSeconds = 0.1; // Play chunks every 100ms
+      const samplesPerChunk = Math.floor(sampleRate * chunkDurationSeconds);
+      
+      let pcmBuffer = new Int16Array(0);
+      let nextPlayTime = audioContext.currentTime;
+      let isPlaying = true;
+
+      // 5) Function to schedule and play audio chunks
+      const scheduleAudioChunk = () => {
+        if (!isPlaying || pcmBuffer.length < samplesPerChunk) {
+          return false;
+        }
+
+        try {
+          // Extract chunk from buffer
+          const chunkData = pcmBuffer.slice(0, samplesPerChunk);
+          pcmBuffer = pcmBuffer.slice(samplesPerChunk);
+
+          // Create AudioBuffer
+          const audioBuffer = audioContext.createBuffer(1, chunkData.length, sampleRate);
+          const channelData = audioBuffer.getChannelData(0);
+          
+          // Convert Int16 PCM to Float32 and copy to AudioBuffer
+          for (let i = 0; i < chunkData.length; i++) {
+            channelData[i] = chunkData[i] / 32768.0; // Convert to -1.0 to 1.0 range
+          }
+
+          // Create and schedule AudioBufferSourceNode
+          const sourceNode = audioContext.createBufferSource();
+          sourceNode.buffer = audioBuffer;
+          sourceNode.connect(audioContext.destination);
+          
+          // Schedule to play at the right time
+          if (nextPlayTime <= audioContext.currentTime) {
+            nextPlayTime = audioContext.currentTime + 0.01; // Small delay to avoid timing issues
+          }
+          
+          sourceNode.start(nextPlayTime);
+          
+          // Update next play time
+          nextPlayTime += chunkDurationSeconds;
+          
+          return true;
+        } catch (audioError) {
+          return false;
+        }
+      };
+
+      // 6) Timer to regularly schedule audio chunks
+      const audioTimer = setInterval(() => {
+        if (isPlaying) {
+          scheduleAudioChunk();
+        } else {
+          clearInterval(audioTimer);
+        }
+      }, 50); // Check every 50ms
+
+      // 7) Read and process streaming chunks - START IMMEDIATELY
+      const processStream = async () => {
+        try {
+          while (true) {
+            const result = await reader.read();
+            const { done, value } = result;
+            
+            if (done) {
+              // Let remaining audio play out, then cleanup
+              setTimeout(() => {
+                // Schedule any remaining audio
+                while (pcmBuffer.length >= samplesPerChunk) {
+                  if (!scheduleAudioChunk()) {
+                    break;
+                  }
+                }
+                
+                // Stop after a delay to let audio finish
+                setTimeout(() => {
+                  isPlaying = false;
+                  clearInterval(audioTimer);
+                }, 2000);
+              }, 100);
+              break;
+            }
+
+            if (value && value.length > 0) {
+              // Convert raw bytes to Int16Array (assuming 16-bit PCM)
+              const int16Data = new Int16Array(value.buffer, value.byteOffset, value.byteLength / 2);
+              
+              // Append to our buffer
+              const newBuffer = new Int16Array(pcmBuffer.length + int16Data.length);
+              newBuffer.set(pcmBuffer);
+              newBuffer.set(int16Data, pcmBuffer.length);
+              pcmBuffer = newBuffer;
+              
+              // Try to schedule audio immediately if we have enough data
+              scheduleAudioChunk();
+            }
+          }
+        } catch (streamError) {
+          isPlaying = false;
+          clearInterval(audioTimer);
+          // Fallback to simple audio
+          fetchAndPlay(text);
+        }
+      };
+
+      // Start processing immediately, don't wait
+      processStream();
+
     } catch (err) {
-      console.error("❌ fetchAndPlayStreaming error:", err);
+      // Fallback to simple audio approach
+      fetchAndPlay(text);
     }
   }
   
@@ -427,8 +586,18 @@ export default function ChatMessage({ message, isUser }) {
 
             {!isUser && (
               <motion.button
-                onClick={() => {
-                  fetchAndPlayStreaming(message.content);
+                onClick={async () => {
+                  // First test if audio is working
+                  const audioWorking = await testAudio();
+                  
+                  if (audioWorking) {
+                    // Wait a moment after the test beep
+                    setTimeout(() => {
+                      fetchAndPlayStreaming(message.content);
+                    }, 500);
+                  } else {
+                    toast.error("Audio not available - check browser permissions");
+                  }
                 }}
                 className="p-1.5 rounded-md hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-all duration-200"
                 whileHover={{ scale: 1.05 }}
