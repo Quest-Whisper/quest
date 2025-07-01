@@ -1030,6 +1030,63 @@ function getCurrentDateTime() {
 // MAIN ENTRYPOINT
 ////////////////////////////////////////////////////////////////////////////////
 
+/**
+ * Generate a conversation title using the LLM based on the conversation content
+ */
+export async function generateConversationTitle(userMessage, aiResponse) {
+  try {
+    const systemPrompt = `You are a helpful assistant that generates concise, descriptive titles for conversations. 
+
+Rules:
+- Generate a title that captures the main topic or intent of the conversation
+- Keep it between 3-8 words
+- Make it descriptive but concise
+- Don't use quotes around the title
+- Focus on the main subject or question being discussed
+- Make it sound natural and professional
+
+Examples:
+- "Website Development Help"
+- "Python Data Analysis"
+- "Travel Planning for Europe"
+- "Resume Writing Tips"
+- "Investment Strategy Discussion"`;
+
+    const chat = ai.chats.create({
+      model: "gemini-2.5-flash",
+      config: {
+        systemInstruction: systemPrompt,
+        // No tools needed for title generation
+      },
+      history: [],
+    });
+
+    const prompt = `Based on this conversation, generate a concise title:
+
+User: ${userMessage}
+AI: ${aiResponse.substring(0, 200)}...
+
+Title:`;
+
+    const result = await sendWithRetry(chat, prompt);
+    const title = extractAssistantText(result).trim();
+    
+    // Clean up the title and ensure it's within limits
+    const cleanTitle = title.replace(/^["']|["']$/g, '').trim();
+    return cleanTitle.length > 50 ? cleanTitle.substring(0, 47) + '...' : cleanTitle;
+  } catch (error) {
+    console.error('Error generating conversation title:', error);
+    // Fallback to the original method
+    const cleaned = userMessage.trim().replace(/\s+/g, ' ');
+    if (cleaned.length <= 50) return cleaned;
+    
+    const truncated = cleaned.substring(0, 47);
+    const lastSpace = truncated.lastIndexOf(' ');
+    
+    return lastSpace > 20 ? truncated.substring(0, lastSpace) + '...' : truncated + '...';
+  }
+}
+
 export async function generateChatCompletion(
   session,
   userMessage,

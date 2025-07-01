@@ -50,20 +50,7 @@ chatSchema.pre('save', function(next) {
   next();
 });
 
-// Helper method to generate title from first message
-chatSchema.statics.generateTitle = function(firstMessage) {
-  if (!firstMessage) return 'New Chat';
-  
-  // Clean the message and truncate to create title
-  const cleaned = firstMessage.trim().replace(/\s+/g, ' ');
-  if (cleaned.length <= 50) return cleaned;
-  
-  // Find a good breaking point
-  const truncated = cleaned.substring(0, 47);
-  const lastSpace = truncated.lastIndexOf(' ');
-  
-  return lastSpace > 20 ? truncated.substring(0, lastSpace) + '...' : truncated + '...';
-};
+// Note: Title generation is now handled by the LLM in the API route
 
 const Chat = mongoose.models.Chat || mongoose.model('Chat', chatSchema);
 

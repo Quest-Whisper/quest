@@ -211,44 +211,11 @@ export default function ChatSidebar({
               </div>
             </div>
 
-            {/* Minimized chat history */}
-            <div className="flex-1 overflow-y-auto p-2">
-              <div className="space-y-2">
-                {chatHistory.slice(0, 8).map((chat, index) => (
-                  <motion.button
-                    key={chat.id}
-                    onClick={() => onLoadChat(chat.id)}
-                    className={`w-full p-2.5 rounded-xl transition-all duration-200 ${
-                      currentChatId === chat.id 
-                        ? 'bg-gradient-to-r from-blue-100 to-indigo-100 border border-blue-200 shadow-sm' 
-                        : 'hover:bg-gray-100 border border-transparent'
-                    }`}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    title={chat.title}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: index * 0.05 }}
-                  >
-                    <svg 
-                      viewBox="0 0 16 16" 
-                      className={`w-5 h-5 mx-auto ${
-                        currentChatId === chat.id ? 'text-blue-600' : 'text-gray-600'
-                      }`}
-                      fill="currentColor"
-                    >
-                      <path d="M14.5 13.5V5.41a1 1 0 0 0-.3-.7L9.8.29A1 1 0 0 0 9.08 0H1.5v13.5A2.5 2.5 0 0 0 4 16h8a2.5 2.5 0 0 0 2.5-2.5m-1.5 0v-7H8v-5H3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1M9.5 5V2.12L12.38 5zM5.13 5h-.62v1.25h2.12V5zm-.62 3h7.12v1.25H4.5zm.62 3h-.62v1.25h7.12V11z" clipRule="evenodd" fillRule="evenodd"/>
-                    </svg>
-                  </motion.button>
-                ))}
-              </div>
-            </div>
-
             {/* Expand button */}
-            <div className="p-3 border-t border-gray-100">
+            <div className="flex p-3 border-t border-gray-100 justify-center">
               <motion.button
                 onClick={() => setShowSidebar(true)}
-                className="w-full p-2.5 rounded-xl hover:bg-gray-100 transition-colors text-gray-600 hover:text-gray-800"
+                className="w-fit p-2.5 rounded-xl hover:bg-gray-100 transition-colors text-gray-600 hover:text-gray-800"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 title="Expand sidebar"
@@ -258,7 +225,7 @@ export default function ChatSidebar({
                   alt="Expand" 
                   width={20} 
                   height={20} 
-                  className="w-5 h-5 object-contain"
+                  className="w-8 h-8 object-contain"
                 />
               </motion.button>
             </div>
@@ -300,7 +267,7 @@ export default function ChatSidebar({
                       alt="Minimize" 
                       width={20} 
                       height={20} 
-                      className="w-5 h-5 object-contain"
+                      className="w-6 h-6 object-contain"
                     />
                   </motion.button>
                   <button

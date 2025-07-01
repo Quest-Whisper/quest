@@ -49,8 +49,12 @@ function makeWavHeader(dataLength, sampleRate, numChannels, bitsPerSample) {
 const audioContext = new AudioContext();
 */
 
-// 3) Fetch + play
-async function fetchAndPlay(message) {
+  // 3) Fetch + play
+  async function fetchAndPlay(message) {
+    const controller = new AbortController();
+    setAbortController(controller);
+    setIsLoading(true);
+
   try {
     // stripMarkdown is your existing helper
     const txt = stripMarkdown(message);
@@ -60,6 +64,7 @@ async function fetchAndPlay(message) {
       `/api/chat/tts?message=${encodeURIComponent(txt)}`,
       {
         cache: "no-store",
+        signal: controller.signal,
       }
     );
     if (!res.ok) throw new Error(`TTS failed: ${res.status}`);
@@ -77,6 +82,33 @@ async function fetchAndPlay(message) {
     const blob = new Blob([wavBuffer.buffer], { type: "audio/wav" });
     const url = URL.createObjectURL(blob);
     const audioEl = new Audio(url);
+
+    // Track the audio element so we can stop it
+    const audioNode = { stop: () => audioEl.pause() };
+    setAudioNodes([audioNode]);
+
+    // Set playing state when audio starts
+    audioEl.onloadeddata = () => {
+      setIsLoading(false);
+      setIsPlaying(true);
+    };
+
+    // Clean up when audio ends
+    audioEl.onended = () => {
+      setIsPlaying(false);
+      setAbortController(null);
+      setAudioNodes([]);
+      URL.revokeObjectURL(url);
+    };
+
+    // Also handle if audio is paused (stopped)
+    audioEl.onpause = () => {
+      setIsPlaying(false);
+      setAbortController(null);
+      setAudioNodes([]);
+      URL.revokeObjectURL(url);
+    };
+
     audioEl.play();
 
     // —OR—  If you prefer Web-Audio:
@@ -88,6 +120,10 @@ async function fetchAndPlay(message) {
     src.start();
     */
   } catch (err) {
+    setIsLoading(false);
+    setIsPlaying(false);
+    setAbortController(null);
+    setAudioNodes([]);
     // Silent error handling
   }
 }
@@ -96,6 +132,10 @@ export default function ChatMessage({ message, isUser }) {
   const [parsedSources, setParsedSources] = useState([]);
   const [wavUrl, setWavUrl] = useState(null);
   const [isHovered, setIsHovered] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [abortController, setAbortController] = useState(null);
+  const [audioNodes, setAudioNodes] = useState([]);
 
   const isError = !isUser && message.isError;
   const sources = message.sources?.length ? message.sources : parsedSources;
@@ -104,11 +144,41 @@ export default function ChatMessage({ message, isUser }) {
 
   // AudioContext configured once
   const audioContext = useMemo(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       const ctx = new AudioContext();
       return ctx;
     }
     return null;
+  }, []);
+
+  // Cleanup function to stop all audio
+  const stopAudio = () => {
+    // Stop the fetch request
+    if (abortController) {
+      abortController.abort();
+      setAbortController(null);
+    }
+
+    // Stop all scheduled audio nodes
+    audioNodes.forEach((node) => {
+      try {
+        if (node.stop) {
+          node.stop();
+        }
+      } catch (e) {
+        // Node might already be stopped
+      }
+    });
+    setAudioNodes([]);
+    setIsPlaying(false);
+    setIsLoading(false);
+  };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      stopAudio();
+    };
   }, []);
 
   // Test function to verify AudioContext is working
@@ -126,17 +196,20 @@ export default function ChatMessage({ message, isUser }) {
       // Create a simple 440Hz beep for 0.2 seconds
       const oscillator = audioContext.createOscillator();
       const gainNode = audioContext.createGain();
-      
+
       oscillator.connect(gainNode);
       gainNode.connect(audioContext.destination);
-      
+
       oscillator.frequency.setValueAtTime(440, audioContext.currentTime);
       gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
-      
+      gainNode.gain.exponentialRampToValueAtTime(
+        0.01,
+        audioContext.currentTime + 0.2
+      );
+
       oscillator.start(audioContext.currentTime);
       oscillator.stop(audioContext.currentTime + 0.2);
-      
+
       return true;
     } catch (error) {
       return false;
@@ -288,9 +361,12 @@ export default function ChatMessage({ message, isUser }) {
       toast.error("Audio not available in this browser");
       return;
     }
-    
 
-    
+    // Create abort controller for this request
+    const controller = new AbortController();
+    setAbortController(controller);
+    setIsLoading(true);
+
     try {
       // 1) Ensure AudioContext is resumed
       if (audioContext.state === "suspended") {
@@ -300,16 +376,16 @@ export default function ChatMessage({ message, isUser }) {
       // 2) Kick off fetch with Firebase-optimized headers
       const res = await fetch(
         `/api/chat/tts?message=${encodeURIComponent(stripMarkdown(text))}`,
-        { 
+        {
           cache: "no-store",
           headers: {
-            'Accept': 'audio/pcm',
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Connection': 'keep-alive',
-            'X-Requested-With': 'XMLHttpRequest' // Help Firebase identify AJAX requests
+            Accept: "audio/pcm",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            Connection: "keep-alive",
+            "X-Requested-With": "XMLHttpRequest", // Help Firebase identify AJAX requests
           },
-          // Firebase timeout optimization
-          signal: AbortSignal.timeout(60000) // 60 second timeout for Firebase
+          // Use our abort controller
+          signal: controller.signal,
         }
       );
 
@@ -328,19 +404,21 @@ export default function ChatMessage({ message, isUser }) {
       const sampleRate = 24000; // PCM sample rate from Gemini
       const chunkDurationSeconds = 0.1; // Play chunks every 100ms
       const samplesPerChunk = Math.floor(sampleRate * chunkDurationSeconds);
-      
+
       let pcmBuffer = new Int16Array(0);
-      let nextPlayTime = audioContext.currentTime;
-      let isPlaying = true;
+            let nextPlayTime = audioContext.currentTime;
+      let streamFinished = false;
       let totalBytesReceived = 0;
       let chunksScheduled = 0;
+      let activeAudioNodes = 0;
+      let hasStartedPlaying = false;
       
       // Buffer for incomplete chunks - fixes the fragmentation issue
       let incompleteByteBuffer = new Uint8Array(0);
 
       // 5) Function to schedule and play audio chunks
       const scheduleAudioChunk = () => {
-        if (!isPlaying || pcmBuffer.length < samplesPerChunk) {
+        if (controller.signal.aborted || pcmBuffer.length < samplesPerChunk) {
           return false;
         }
 
@@ -350,9 +428,13 @@ export default function ChatMessage({ message, isUser }) {
           pcmBuffer = pcmBuffer.slice(samplesPerChunk);
 
           // Create AudioBuffer
-          const audioBuffer = audioContext.createBuffer(1, chunkData.length, sampleRate);
+          const audioBuffer = audioContext.createBuffer(
+            1,
+            chunkData.length,
+            sampleRate
+          );
           const channelData = audioBuffer.getChannelData(0);
-          
+
           // Convert Int16 PCM to Float32 and copy to AudioBuffer
           for (let i = 0; i < chunkData.length; i++) {
             channelData[i] = chunkData[i] / 32768.0; // Convert to -1.0 to 1.0 range
@@ -362,18 +444,41 @@ export default function ChatMessage({ message, isUser }) {
           const sourceNode = audioContext.createBufferSource();
           sourceNode.buffer = audioBuffer;
           sourceNode.connect(audioContext.destination);
-          
+
+                    // Track this audio node so we can stop it later
+          setAudioNodes((prev) => [...prev, sourceNode]);
+          activeAudioNodes++;
+
+          // Set playing state when first audio starts
+          if (!hasStartedPlaying) {
+            hasStartedPlaying = true;
+            setIsLoading(false);
+            setIsPlaying(true);
+          }
+
+          // Clean up when the node finishes playing
+          sourceNode.onended = () => {
+            setAudioNodes((prev) => prev.filter((node) => node !== sourceNode));
+            activeAudioNodes--;
+
+            // If stream is finished and no more audio nodes are playing, we're done
+            if (streamFinished && activeAudioNodes === 0) {
+              setIsPlaying(false);
+              setAbortController(null);
+            }
+          };
+
           // Schedule to play at the right time
           if (nextPlayTime <= audioContext.currentTime) {
             nextPlayTime = audioContext.currentTime + 0.01; // Small delay to avoid timing issues
           }
-          
+
           sourceNode.start(nextPlayTime);
           chunksScheduled++;
-          
+
           // Update next play time
           nextPlayTime += chunkDurationSeconds;
-          
+
           return true;
         } catch (audioError) {
           return false;
@@ -382,7 +487,7 @@ export default function ChatMessage({ message, isUser }) {
 
       // 6) Timer to regularly schedule audio chunks
       const audioTimer = setInterval(() => {
-        if (isPlaying) {
+        if (!controller.signal.aborted) {
           scheduleAudioChunk();
         } else {
           clearInterval(audioTimer);
@@ -393,86 +498,162 @@ export default function ChatMessage({ message, isUser }) {
       const processStream = async () => {
         try {
           let chunkCount = 0;
-          
+          console.log(`[Audio] Starting to process stream for text: "${text.substring(0, 50)}..."`);
+
           while (true) {
             const result = await reader.read();
             const { done, value } = result;
             chunkCount++;
-            
+
             if (done) {
-              
               // Process any remaining incomplete bytes
               if (incompleteByteBuffer.length > 0) {
                 // If we have at least one complete sample, process it
                 if (incompleteByteBuffer.length >= 2) {
-                  const completeSamples = Math.floor(incompleteByteBuffer.length / 2);
-                  const int16Data = new Int16Array(incompleteByteBuffer.buffer, 0, completeSamples);
-                  const newBuffer = new Int16Array(pcmBuffer.length + int16Data.length);
+                  const completeSamples = Math.floor(
+                    incompleteByteBuffer.length / 2
+                  );
+                  const int16Data = new Int16Array(
+                    incompleteByteBuffer.buffer,
+                    0,
+                    completeSamples
+                  );
+                  const newBuffer = new Int16Array(
+                    pcmBuffer.length + int16Data.length
+                  );
                   newBuffer.set(pcmBuffer);
                   newBuffer.set(int16Data, pcmBuffer.length);
                   pcmBuffer = newBuffer;
                 }
               }
+
+              // Mark stream as finished and schedule remaining audio
+              streamFinished = true;
               
-              // Let remaining audio play out, then cleanup
               setTimeout(() => {
-                // Schedule any remaining audio
-                let remainingChunks = 0;
-                while (pcmBuffer.length >= samplesPerChunk) {
-                  if (scheduleAudioChunk()) {
-                    remainingChunks++;
-                  } else {
-                    break;
+                if (!controller.signal.aborted) {
+                  // Schedule any remaining audio - be more aggressive about playing all remaining data
+                  let remainingChunks = 0;
+                  
+                  // First, try to schedule complete chunks
+                  while (pcmBuffer.length >= samplesPerChunk) {
+                    if (scheduleAudioChunk()) {
+                      remainingChunks++;
+                    } else {
+                      break;
+                    }
                   }
+                  
+                  // Then, if there's still data left (even if incomplete), schedule it
+                  if (pcmBuffer.length > 0) {
+                    try {
+                      const finalChunkData = pcmBuffer;
+                      const audioBuffer = audioContext.createBuffer(
+                        1,
+                        finalChunkData.length,
+                        sampleRate
+                      );
+                      const channelData = audioBuffer.getChannelData(0);
+
+                      for (let i = 0; i < finalChunkData.length; i++) {
+                        channelData[i] = finalChunkData[i] / 32768.0;
+                      }
+
+                      const sourceNode = audioContext.createBufferSource();
+                      sourceNode.buffer = audioBuffer;
+                      sourceNode.connect(audioContext.destination);
+
+                      setAudioNodes((prev) => [...prev, sourceNode]);
+                      activeAudioNodes++;
+
+                      sourceNode.onended = () => {
+                        setAudioNodes((prev) => prev.filter((node) => node !== sourceNode));
+                        activeAudioNodes--;
+                        if (streamFinished && activeAudioNodes === 0) {
+                          setIsPlaying(false);
+                          setAbortController(null);
+                        }
+                      };
+
+                      if (nextPlayTime <= audioContext.currentTime) {
+                        nextPlayTime = audioContext.currentTime + 0.01;
+                      }
+
+                      sourceNode.start(nextPlayTime);
+                      remainingChunks++;
+                      
+                      // Clear the buffer since we've scheduled everything
+                      pcmBuffer = new Int16Array(0);
+                    } catch (finalAudioError) {
+                      console.warn("Error scheduling final audio chunk:", finalAudioError);
+                    }
+                  }
+                  
+                  console.log(`[Audio] Stream finished. Scheduled ${remainingChunks} remaining chunks.`);
                 }
+
+                // Clear the timer
+                clearInterval(audioTimer);
                 
-                // Stop after a delay to let audio finish
-                setTimeout(() => {
-                  isPlaying = false;
-                  clearInterval(audioTimer);
-                }, 2000);
-              }, 100);
+                // If no audio nodes are playing, we can stop immediately
+                if (activeAudioNodes === 0) {
+                  setIsPlaying(false);
+                  setAbortController(null);
+                }
+              }, 500); // Increased delay from 100ms to 500ms to ensure all data is processed
               break;
             }
 
             if (value && value.length > 0) {
               totalBytesReceived += value.length;
-              
+
               try {
                 // Combine with any previous incomplete bytes
-                const combinedBytes = new Uint8Array(incompleteByteBuffer.length + value.length);
+                const combinedBytes = new Uint8Array(
+                  incompleteByteBuffer.length + value.length
+                );
                 combinedBytes.set(incompleteByteBuffer);
                 combinedBytes.set(value, incompleteByteBuffer.length);
-                
+
                 // Calculate how many complete 16-bit samples we have
                 const completeSamples = Math.floor(combinedBytes.length / 2);
                 const completeBytes = completeSamples * 2;
-                
+
                 if (completeSamples > 0) {
                   // Process complete samples
-                  const completeByteArray = combinedBytes.slice(0, completeBytes);
-                  const int16Data = new Int16Array(completeByteArray.buffer, completeByteArray.byteOffset, completeSamples);
-                  
+                  const completeByteArray = combinedBytes.slice(
+                    0,
+                    completeBytes
+                  );
+                  const int16Data = new Int16Array(
+                    completeByteArray.buffer,
+                    completeByteArray.byteOffset,
+                    completeSamples
+                  );
+
                   // Validate the audio data range
-                  const hasValidData = int16Data.some(sample => Math.abs(sample) > 100);
-                  
+                  const hasValidData = int16Data.some(
+                    (sample) => Math.abs(sample) > 100
+                  );
+
                   // Append to our buffer
-                  const newBuffer = new Int16Array(pcmBuffer.length + int16Data.length);
+                  const newBuffer = new Int16Array(
+                    pcmBuffer.length + int16Data.length
+                  );
                   newBuffer.set(pcmBuffer);
                   newBuffer.set(int16Data, pcmBuffer.length);
                   pcmBuffer = newBuffer;
-                  
+
                   // Try to schedule audio immediately if we have enough data
                   scheduleAudioChunk();
                 }
-                
+
                 // Store any remaining incomplete bytes for next chunk
                 if (combinedBytes.length > completeBytes) {
                   incompleteByteBuffer = combinedBytes.slice(completeBytes);
                 } else {
                   incompleteByteBuffer = new Uint8Array(0);
                 }
-                
               } catch (audioError) {
                 // Reset incomplete buffer on error
                 incompleteByteBuffer = new Uint8Array(0);
@@ -480,23 +661,35 @@ export default function ChatMessage({ message, isUser }) {
             }
           }
         } catch (streamError) {
-          isPlaying = false;
+          console.error("[Audio] Stream processing error:", streamError);
+          streamFinished = true;
           clearInterval(audioTimer);
-          // Fallback to simple audio
-          fetchAndPlay(text);
+          setIsLoading(false);
+          // Only stop immediately if no audio is playing
+          if (activeAudioNodes === 0) {
+            setIsPlaying(false);
+            setAbortController(null);
+          }
+          // Only fallback if not aborted
+          if (!controller.signal.aborted) {
+            console.log("[Audio] Falling back to non-streaming playback");
+            fetchAndPlay(text);
+          }
         }
       };
 
       // Start processing immediately, don't wait
       processStream();
-
     } catch (err) {
-      // Fallback to simple audio approach
-      fetchAndPlay(text);
+      setIsLoading(false);
+      setIsPlaying(false);
+      setAbortController(null);
+      // Only fallback if not aborted
+      if (!controller.signal.aborted) {
+        fetchAndPlay(text);
+      }
     }
   }
-  
-  
 
   const copyText = async () => {
     await navigator.clipboard.writeText(message.content || "");
@@ -649,28 +842,48 @@ export default function ChatMessage({ message, isUser }) {
             {!isUser && (
               <motion.button
                 onClick={async () => {
-                  // First test if audio is working
-                  const audioWorking = await testAudio();
-                  
-                  if (audioWorking) {
-                    // Wait a moment after the test beep
-                    setTimeout(() => {
-                      fetchAndPlayStreaming(message.content);
-                    }, 500);
+                  if (isPlaying || isLoading) {
+                    // Stop audio if currently playing or loading
+                    stopAudio();
                   } else {
-                    toast.error("Audio not available - check browser permissions");
+                    // First test if audio is working
+                    const audioWorking = await testAudio();
+
+                    if (audioWorking) {
+                      // Wait a moment after the test beep
+                      setTimeout(() => {
+                        fetchAndPlayStreaming(message.content);
+                      }, 500);
+                    } else {
+                      toast.error(
+                        "Audio not available - check browser permissions"
+                      );
+                    }
                   }
                 }}
                 className="p-1.5 rounded-md hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-all duration-200"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
-                <Image
-                  src="/icons/volume_icon.png"
-                  alt="Google logo"
-                  width={24}
-                  height={24}
-                />
+                {isLoading ? (
+                  // Loading spinner
+                  <div className="w-6 h-6 flex items-center justify-center">
+                    <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin"></div>
+                  </div>
+                ) : isPlaying ? (
+                  // Stop button
+                  <div className="w-6 h-6 bg-[#66757F] hover:bg-[#292F33] rounded-md flex items-center justify-center transition-colors duration-200">
+                    <div className="w-3 h-3 bg-white rounded-sm"></div>
+                  </div>
+                ) : (
+                  // Play button
+                  <Image
+                    src="/icons/volume_icon.png"
+                    alt="Play audio"
+                    width={24}
+                    height={24}
+                  />
+                )}
               </motion.button>
             )}
 

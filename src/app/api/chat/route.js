@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { generateChatCompletion } from "@/lib/largeLanguageModel";
+import { generateChatCompletion, generateConversationTitle } from "@/lib/largeLanguageModel";
 import connectToDatabase from "@/lib/mongodb";
 import Chat from "@/models/Chat";
 
@@ -34,8 +34,8 @@ async function saveChat(userMessage, aiMessage, context, chatId = null) {
       await chat.save();
       return { chatId: chat._id, isNew: false };
     } else {
-      // Create new chat instance
-      const title = Chat.generateTitle(userMessage.content);
+      // Create new chat instance with AI-generated title
+      const title = await generateConversationTitle(userMessage.content, aiMessage.content);
       
       const newChat = await Chat.create({
         userId: context.userId,

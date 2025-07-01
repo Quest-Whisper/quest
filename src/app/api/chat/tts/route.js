@@ -33,7 +33,7 @@ export async function GET(request) {
   let totalBytesProcessed = 0;
   
   // Firebase memory management
-  const MAX_BUFFER_SIZE = 1024 * 1024; // 1MB buffer limit for Firebase
+  const MAX_BUFFER_SIZE = 20 * 1024 * 1024; // 20MB buffer limit for Firebase NOTE: 20MB of 16-bit PCM audio at 24kHz = ~7 minutes of speech
 
   // Create a promise that resolves when connection is ready
   connectionPromise = new Promise((resolve, reject) => {
@@ -171,7 +171,7 @@ export async function GET(request) {
           voiceConfig: { prebuiltVoiceConfig: { voiceName: "Charon" } },
         },
         temperature: 0.7,
-        maxOutputTokens: 1000,
+        maxOutputTokens: 10000,
       },
       callbacks,
     });
