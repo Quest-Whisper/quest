@@ -29,8 +29,6 @@ export const authOptions = {
     }),
   ],
   secret: process.env.NEXTAUTH_SECRET,
-  debug: true, // Enable debug in production temporarily
-  url: process.env.NEXTAUTH_URL,
   callbacks: {
     async signIn({ user, account, profile }) {
       if (account.provider === "google") {
