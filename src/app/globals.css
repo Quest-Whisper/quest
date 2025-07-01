@@ -71,11 +71,28 @@ body {
   .shadow-glow-lg {
     box-shadow: 0 0 30px -5px rgba(59, 130, 246, 0.4);
   }
+
+  /* Mobile-specific utilities */
+  .pb-safe-area-inset-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  .h-dvh {
+    height: 100dvh;
+  }
+  
+  /* Better mobile touch targets */
+  .mobile-touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
 }
 
 /* Smooth scrolling for the chat container */
 .chat-scroll {
   scroll-behavior: smooth;
+  /* Improve mobile scrolling performance */
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Custom scrollbar styling */
@@ -94,6 +111,24 @@ body {
 
 .chat-scroll::-webkit-scrollbar-thumb:hover {
   background: rgba(148, 163, 184, 0.5);
+}
+
+/* Mobile-specific optimizations */
+@media (max-width: 768px) {
+  /* Hide scrollbars on mobile for cleaner look */
+  .chat-scroll::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .chat-scroll {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  /* Prevent horizontal scrolling */
+  * {
+    max-width: 100%;
+  }
 }
 
 /* Improved typography and readability */
