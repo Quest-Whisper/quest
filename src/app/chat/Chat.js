@@ -293,6 +293,30 @@ function Chat() {
         {/* Top bar */}
         <div className="border-b border-gray-200 bg-white/80 backdrop-blur-sm p-4 flex items-center justify-between sticky top-0 z-30 shrink-0">
           <div className="flex items-center gap-3">
+            {(showSidebar === false || (isMobile && showSidebar !== true)) && (
+              <button
+                onClick={() => setShowSidebar(true)}
+                className="p-2 rounded-xl hover:bg-gray-100 transition-colors group"
+                title="Show sidebar"
+              >
+                <Bars3Icon className="w-5 h-5 text-gray-600 group-hover:text-gray-800" />
+              </button>
+            )}
+            {showSidebar === 'minimized' && !isMobile && (
+              <button
+                onClick={() => setShowSidebar(true)}
+                className="p-2 rounded-xl hover:bg-gray-100 transition-colors group"
+                title="Expand sidebar"
+              >
+                                 <Image 
+                   src="/icons/expand_icon.png" 
+                   alt="Expand sidebar" 
+                   width={20} 
+                   height={20} 
+                   className="w-5 h-5 object-contain opacity-60 group-hover:opacity-80"
+                 />
+              </button>
+            )}
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
               <h2 className="text-lg font-semibold text-gray-800">
