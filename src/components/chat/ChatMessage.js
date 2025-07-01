@@ -292,6 +292,9 @@ export default function ChatMessage({ message, isUser }) {
       return;
     }
     
+    // Enable production debugging logs
+    const ENABLE_AUDIO_LOGS = true;
+    
     try {
       // 1) Ensure AudioContext is resumed
       if (audioContext.state === "suspended") {
@@ -336,6 +339,9 @@ export default function ChatMessage({ message, isUser }) {
       let isPlaying = true;
       let totalBytesReceived = 0;
       let chunksScheduled = 0;
+      
+      // Buffer for incomplete chunks - fixes the fragmentation issue
+      let incompleteByteBuffer = new Uint8Array(0);
 
       // 5) Function to schedule and play audio chunks
       const scheduleAudioChunk = () => {
@@ -395,13 +401,40 @@ export default function ChatMessage({ message, isUser }) {
           let chunkCount = 0;
           console.log("🎵 Starting audio stream processing...");
           
+          if (ENABLE_AUDIO_LOGS) {
+            console.log("🎵 Audio debugging enabled - monitoring chunk integrity");
+          }
+          
           while (true) {
             const result = await reader.read();
             const { done, value } = result;
             chunkCount++;
             
+            if (ENABLE_AUDIO_LOGS && value) {
+              // Only log problematic chunks or every 10th chunk to reduce spam
+              if (value.length % 2 !== 0 || chunkCount % 10 === 0) {
+                console.log(`🔧 Chunk ${chunkCount}: ${value.length} bytes, odd=${value.length % 2 !== 0}`);
+              }
+            }
+            
             if (done) {
               console.log(`🎵 Stream complete! Processed ${chunkCount} chunks, ${totalBytesReceived} bytes total`);
+              console.log(`🎵 Final buffer state: ${incompleteByteBuffer.length} incomplete bytes remaining`);
+              
+              // Process any remaining incomplete bytes
+              if (incompleteByteBuffer.length > 0) {
+                console.log(`🔧 Processing ${incompleteByteBuffer.length} remaining incomplete bytes`);
+                // If we have at least one complete sample, process it
+                if (incompleteByteBuffer.length >= 2) {
+                  const completeSamples = Math.floor(incompleteByteBuffer.length / 2);
+                  const int16Data = new Int16Array(incompleteByteBuffer.buffer, 0, completeSamples);
+                  const newBuffer = new Int16Array(pcmBuffer.length + int16Data.length);
+                  newBuffer.set(pcmBuffer);
+                  newBuffer.set(int16Data, pcmBuffer.length);
+                  pcmBuffer = newBuffer;
+                }
+              }
+              
               // Let remaining audio play out, then cleanup
               setTimeout(() => {
                 // Schedule any remaining audio
@@ -427,32 +460,51 @@ export default function ChatMessage({ message, isUser }) {
             if (value && value.length > 0) {
               totalBytesReceived += value.length;
               
-              // Ensure we have complete 16-bit samples (even number of bytes)
-              if (value.length % 2 !== 0) {
-                console.warn("❌ Received incomplete audio sample, skipping chunk");
-                return;
-              }
-              
               try {
-                // Convert raw bytes to Int16Array (16-bit PCM)
-                const int16Data = new Int16Array(value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength));
+                // Combine with any previous incomplete bytes
+                const combinedBytes = new Uint8Array(incompleteByteBuffer.length + value.length);
+                combinedBytes.set(incompleteByteBuffer);
+                combinedBytes.set(value, incompleteByteBuffer.length);
                 
-                // Validate the audio data range
-                const hasValidData = int16Data.some(sample => Math.abs(sample) > 100);
-                if (!hasValidData) {
-                  console.warn("❌ Audio chunk appears to be silent/invalid");
+                // Calculate how many complete 16-bit samples we have
+                const completeSamples = Math.floor(combinedBytes.length / 2);
+                const completeBytes = completeSamples * 2;
+                
+                if (completeSamples > 0) {
+                  // Process complete samples
+                  const completeByteArray = combinedBytes.slice(0, completeBytes);
+                  const int16Data = new Int16Array(completeByteArray.buffer, completeByteArray.byteOffset, completeSamples);
+                  
+                  // Validate the audio data range
+                  const hasValidData = int16Data.some(sample => Math.abs(sample) > 100);
+                  if (!hasValidData && ENABLE_AUDIO_LOGS) {
+                    console.warn("❌ Audio chunk appears to be silent/invalid");
+                  }
+                  
+                  // Append to our buffer
+                  const newBuffer = new Int16Array(pcmBuffer.length + int16Data.length);
+                  newBuffer.set(pcmBuffer);
+                  newBuffer.set(int16Data, pcmBuffer.length);
+                  pcmBuffer = newBuffer;
+                  
+                  // Try to schedule audio immediately if we have enough data
+                  scheduleAudioChunk();
                 }
                 
-                // Append to our buffer
-                const newBuffer = new Int16Array(pcmBuffer.length + int16Data.length);
-                newBuffer.set(pcmBuffer);
-                newBuffer.set(int16Data, pcmBuffer.length);
-                pcmBuffer = newBuffer;
+                // Store any remaining incomplete bytes for next chunk
+                if (combinedBytes.length > completeBytes) {
+                  incompleteByteBuffer = combinedBytes.slice(completeBytes);
+                  if (ENABLE_AUDIO_LOGS) {
+                    console.log(`🔧 Buffering ${incompleteByteBuffer.length} incomplete bytes for next chunk`);
+                  }
+                } else {
+                  incompleteByteBuffer = new Uint8Array(0);
+                }
                 
-                // Try to schedule audio immediately if we have enough data
-                scheduleAudioChunk();
               } catch (audioError) {
                 console.error("❌ Error processing audio chunk:", audioError);
+                // Reset incomplete buffer on error
+                incompleteByteBuffer = new Uint8Array(0);
               }
             }
           }

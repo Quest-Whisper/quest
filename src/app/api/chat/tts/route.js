@@ -20,6 +20,9 @@ export async function GET(request) {
     return new NextResponse("API key not configured", { status: 500 });
   }
 
+  console.log(`[TTS] Starting request for message: "${message.substring(0, 50)}..."`);
+  const startTime = Date.now();
+
   // 1) Create a ReadableStream to push raw-PCM chunks as they arrive
   let controllerRef;
   let sessionRef;
@@ -96,6 +99,11 @@ export async function GET(request) {
           
           totalChunks++;
           
+          // Log chunk info for production debugging
+          if (totalChunks % 10 === 0 || buf.length % 2 !== 0) {
+            console.log(`[TTS] Chunk ${totalChunks}: ${buf.length} bytes, total: ${totalBytesProcessed} bytes`);
+          }
+          
           if (controllerRef && !streamFinished) {
             controllerRef.enqueue(buf);
           }
@@ -152,8 +160,10 @@ export async function GET(request) {
       connectionReject(err);
     },
     onclose: (event) => {
+      const duration = Date.now() - startTime;
+      console.log(`[TTS] WebSocket closed after ${duration}ms - chunks: ${totalChunks}, bytes: ${totalBytesProcessed}`);
       if (event?.code !== 1000) {
-        console.log("[TTS] WebSocket closed - code:", event?.code, "reason:", event?.reason);
+        console.log("[TTS] Close code:", event?.code, "reason:", event?.reason);
       }
       if (controllerRef && !streamFinished) {
         streamFinished = true;
