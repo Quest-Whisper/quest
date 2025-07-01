@@ -298,15 +298,19 @@ export default function ChatMessage({ message, isUser }) {
         await audioContext.resume();
       }
 
-      // 2) Kick off fetch
+      // 2) Kick off fetch with Firebase-optimized headers
       const res = await fetch(
         `/api/chat/tts?message=${encodeURIComponent(stripMarkdown(text))}`,
         { 
           cache: "no-store",
           headers: {
             'Accept': 'audio/pcm',
-            'Cache-Control': 'no-cache'
-          }
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Connection': 'keep-alive',
+            'X-Requested-With': 'XMLHttpRequest' // Help Firebase identify AJAX requests
+          },
+          // Firebase timeout optimization
+          signal: AbortSignal.timeout(60000) // 60 second timeout for Firebase
         }
       );
 
@@ -389,6 +393,7 @@ export default function ChatMessage({ message, isUser }) {
       const processStream = async () => {
         try {
           let chunkCount = 0;
+          console.log("🎵 Starting audio stream processing...");
           
           while (true) {
             const result = await reader.read();
@@ -396,6 +401,7 @@ export default function ChatMessage({ message, isUser }) {
             chunkCount++;
             
             if (done) {
+              console.log(`🎵 Stream complete! Processed ${chunkCount} chunks, ${totalBytesReceived} bytes total`);
               // Let remaining audio play out, then cleanup
               setTimeout(() => {
                 // Schedule any remaining audio
@@ -407,6 +413,7 @@ export default function ChatMessage({ message, isUser }) {
                     break;
                   }
                 }
+                console.log(`🎵 Scheduled ${remainingChunks} remaining audio chunks`);
                 
                 // Stop after a delay to let audio finish
                 setTimeout(() => {
@@ -420,17 +427,33 @@ export default function ChatMessage({ message, isUser }) {
             if (value && value.length > 0) {
               totalBytesReceived += value.length;
               
-              // Convert raw bytes to Int16Array (assuming 16-bit PCM)
-              const int16Data = new Int16Array(value.buffer, value.byteOffset, value.byteLength / 2);
+              // Ensure we have complete 16-bit samples (even number of bytes)
+              if (value.length % 2 !== 0) {
+                console.warn("❌ Received incomplete audio sample, skipping chunk");
+                return;
+              }
               
-              // Append to our buffer
-              const newBuffer = new Int16Array(pcmBuffer.length + int16Data.length);
-              newBuffer.set(pcmBuffer);
-              newBuffer.set(int16Data, pcmBuffer.length);
-              pcmBuffer = newBuffer;
-              
-              // Try to schedule audio immediately if we have enough data
-              scheduleAudioChunk();
+              try {
+                // Convert raw bytes to Int16Array (16-bit PCM)
+                const int16Data = new Int16Array(value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength));
+                
+                // Validate the audio data range
+                const hasValidData = int16Data.some(sample => Math.abs(sample) > 100);
+                if (!hasValidData) {
+                  console.warn("❌ Audio chunk appears to be silent/invalid");
+                }
+                
+                // Append to our buffer
+                const newBuffer = new Int16Array(pcmBuffer.length + int16Data.length);
+                newBuffer.set(pcmBuffer);
+                newBuffer.set(int16Data, pcmBuffer.length);
+                pcmBuffer = newBuffer;
+                
+                // Try to schedule audio immediately if we have enough data
+                scheduleAudioChunk();
+              } catch (audioError) {
+                console.error("❌ Error processing audio chunk:", audioError);
+              }
             }
           }
         } catch (streamError) {

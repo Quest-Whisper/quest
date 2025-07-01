@@ -1,7 +1,10 @@
 import { GoogleGenAI, Modality } from "@google/genai";
 import { NextResponse } from "next/server";
 
-export const runtime = "edge";
+// Firebase App Hosting optimizations
+export const runtime = "nodejs"; // Use Node.js runtime for better Firebase compatibility
+export const dynamic = "force-dynamic"; // Ensure dynamic rendering for streaming
+export const maxDuration = 60; // Firebase function timeout
 
 export async function GET(request) {
   const url = new URL(request.url);
@@ -26,6 +29,10 @@ export async function GET(request) {
   let connectionReject;
   let streamFinished = false;
   let totalChunks = 0;
+  let totalBytesProcessed = 0;
+  
+  // Firebase memory management
+  const MAX_BUFFER_SIZE = 1024 * 1024; // 1MB buffer limit for Firebase
 
   // Create a promise that resolves when connection is ready
   connectionPromise = new Promise((resolve, reject) => {
@@ -62,7 +69,31 @@ export async function GET(request) {
       // Check for direct audio data first (this is the main audio stream)
       if (message.data) {
         try {
+          // Validate base64 data before processing
+          if (typeof message.data !== 'string' || message.data.length === 0) {
+            console.warn("[TTS] Invalid audio data received:", typeof message.data);
+            return;
+          }
+          
           const buf = Buffer.from(message.data, "base64");
+          
+          // Validate buffer size (should be multiple of 2 for 16-bit PCM)
+          if (buf.length % 2 !== 0) {
+            console.warn("[TTS] Invalid PCM buffer length:", buf.length);
+            return;
+          }
+          
+          // Firebase memory check
+          totalBytesProcessed += buf.length;
+          if (totalBytesProcessed > MAX_BUFFER_SIZE) {
+            console.warn("[TTS] Firebase memory limit reached, closing stream");
+            if (controllerRef && !streamFinished) {
+              streamFinished = true;
+              controllerRef.close();
+            }
+            return;
+          }
+          
           totalChunks++;
           
           if (controllerRef && !streamFinished) {
@@ -197,13 +228,17 @@ export async function GET(request) {
     }
   }, 30000); // 30 second timeout
 
-  // 6) Return the streaming response
+  // 6) Return the streaming response with Firebase-optimized headers
   return new NextResponse(stream, {
     headers: {
       "Content-Type": "audio/pcm",
-      "Cache-Control": "no-cache",
+      "Cache-Control": "no-cache, no-store, must-revalidate",
       "Connection": "keep-alive",
       "Transfer-Encoding": "chunked",
+      "X-Accel-Buffering": "no", // Disable nginx buffering for Firebase
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
     },
   });
 }
