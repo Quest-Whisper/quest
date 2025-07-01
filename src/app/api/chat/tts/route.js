@@ -16,12 +16,10 @@ export async function GET(request) {
 
   // Check for API key
   if (!process.env.GEMINI_API_KEY) {
-    console.error("[TTS] Missing GEMINI_API_KEY");
     return new NextResponse("API key not configured", { status: 500 });
   }
 
-  console.log(`[TTS] Starting request for message: "${message.substring(0, 50)}..."`);
-  const startTime = Date.now();
+
 
   // 1) Create a ReadableStream to push raw-PCM chunks as they arrive
   let controllerRef;
@@ -74,7 +72,6 @@ export async function GET(request) {
         try {
           // Validate base64 data before processing
           if (typeof message.data !== 'string' || message.data.length === 0) {
-            console.warn("[TTS] Invalid audio data received:", typeof message.data);
             return;
           }
           
@@ -82,14 +79,12 @@ export async function GET(request) {
           
           // Validate buffer size (should be multiple of 2 for 16-bit PCM)
           if (buf.length % 2 !== 0) {
-            console.warn("[TTS] Invalid PCM buffer length:", buf.length);
             return;
           }
           
           // Firebase memory check
           totalBytesProcessed += buf.length;
           if (totalBytesProcessed > MAX_BUFFER_SIZE) {
-            console.warn("[TTS] Firebase memory limit reached, closing stream");
             if (controllerRef && !streamFinished) {
               streamFinished = true;
               controllerRef.close();
@@ -99,16 +94,11 @@ export async function GET(request) {
           
           totalChunks++;
           
-          // Log chunk info for production debugging
-          if (totalChunks % 10 === 0 || buf.length % 2 !== 0) {
-            console.log(`[TTS] Chunk ${totalChunks}: ${buf.length} bytes, total: ${totalBytesProcessed} bytes`);
-          }
-          
           if (controllerRef && !streamFinished) {
             controllerRef.enqueue(buf);
           }
         } catch (bufferError) {
-          console.error("[TTS] Error creating buffer from base64:", bufferError);
+          // Silent error handling - no logs in production
         }
         return;
       }
@@ -127,7 +117,7 @@ export async function GET(request) {
                   controllerRef.enqueue(buf);
                 }
               } catch (bufferError) {
-                console.error("[TTS] Error creating buffer from modelTurn part:", bufferError);
+                // Silent error handling - no logs in production
               }
             }
           }
@@ -143,28 +133,21 @@ export async function GET(request) {
         
         // Check for errors
         if (message.serverContent.error) {
-          console.error("[TTS] Server error:", message.serverContent.error);
           if (controllerRef && !streamFinished) {
             streamFinished = true;
-            controllerRef.error(new Error(message.serverContent.error));
+            controllerRef.error(new Error("Audio generation error"));
           }
         }
       }
     },
     onerror: (err) => {
-      console.error("[TTS] WebSocket error:", err);
       if (controllerRef && !streamFinished) {
         streamFinished = true;
-        controllerRef.error(err);
+        controllerRef.error(new Error("Connection error"));
       }
-      connectionReject(err);
+      connectionReject(new Error("Connection failed"));
     },
     onclose: (event) => {
-      const duration = Date.now() - startTime;
-      console.log(`[TTS] WebSocket closed after ${duration}ms - chunks: ${totalChunks}, bytes: ${totalBytesProcessed}`);
-      if (event?.code !== 1000) {
-        console.log("[TTS] Close code:", event?.code, "reason:", event?.reason);
-      }
       if (controllerRef && !streamFinished) {
         streamFinished = true;
         controllerRef.close();
@@ -212,18 +195,16 @@ export async function GET(request) {
     });
 
   } catch (err) {
-    console.error("[TTS] Connection failed:", err);
     if (controllerRef && !streamFinished) {
       streamFinished = true;
-      controllerRef.error(err);
+      controllerRef.error(new Error("Service unavailable"));
     }
-    return new NextResponse(`Connection error: ${err.message}`, { status: 500 });
+    return new NextResponse("Service temporarily unavailable", { status: 500 });
   }
 
   // 5) Set up a timeout to close the stream if no data is received
   setTimeout(() => {
     if (!streamFinished && totalChunks === 0) {
-      console.log("[TTS] Timeout - no audio data received");
       if (controllerRef) {
         streamFinished = true;
         controllerRef.close();
@@ -232,7 +213,7 @@ export async function GET(request) {
         try {
           sessionRef.close();
         } catch (e) {
-          console.error("[TTS] Error closing session on timeout:", e);
+          // Silent cleanup
         }
       }
     }

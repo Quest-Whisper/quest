@@ -88,7 +88,7 @@ async function fetchAndPlay(message) {
     src.start();
     */
   } catch (err) {
-    console.error("TTS playback error:", err);
+    // Silent error handling
   }
 }
 
@@ -114,7 +114,6 @@ export default function ChatMessage({ message, isUser }) {
   // Test function to verify AudioContext is working
   const testAudio = async () => {
     if (!audioContext) {
-      console.error("❌ No AudioContext available");
       return false;
     }
 
@@ -140,7 +139,6 @@ export default function ChatMessage({ message, isUser }) {
       
       return true;
     } catch (error) {
-      console.error("❌ Audio test failed:", error);
       return false;
     }
   };
@@ -287,13 +285,11 @@ export default function ChatMessage({ message, isUser }) {
   // NEW streaming TTS playback
   async function fetchAndPlayStreaming(text) {
     if (!audioContext) {
-      console.error("❌ No AudioContext available");
       toast.error("Audio not available in this browser");
       return;
     }
     
-    // Enable production debugging logs
-    const ENABLE_AUDIO_LOGS = true;
+
     
     try {
       // 1) Ensure AudioContext is resumed
@@ -323,7 +319,6 @@ export default function ChatMessage({ message, isUser }) {
 
       // 3) Confirm streaming support
       if (!res.body) {
-        console.error("❌ No response.body – streaming unsupported, falling back to simple audio");
         return fetchAndPlay(text);
       }
 
@@ -381,7 +376,6 @@ export default function ChatMessage({ message, isUser }) {
           
           return true;
         } catch (audioError) {
-          console.error("❌ Error scheduling audio chunk:", audioError);
           return false;
         }
       };
@@ -399,31 +393,16 @@ export default function ChatMessage({ message, isUser }) {
       const processStream = async () => {
         try {
           let chunkCount = 0;
-          console.log("🎵 Starting audio stream processing...");
-          
-          if (ENABLE_AUDIO_LOGS) {
-            console.log("🎵 Audio debugging enabled - monitoring chunk integrity");
-          }
           
           while (true) {
             const result = await reader.read();
             const { done, value } = result;
             chunkCount++;
             
-            if (ENABLE_AUDIO_LOGS && value) {
-              // Only log problematic chunks or every 10th chunk to reduce spam
-              if (value.length % 2 !== 0 || chunkCount % 10 === 0) {
-                console.log(`🔧 Chunk ${chunkCount}: ${value.length} bytes, odd=${value.length % 2 !== 0}`);
-              }
-            }
-            
             if (done) {
-              console.log(`🎵 Stream complete! Processed ${chunkCount} chunks, ${totalBytesReceived} bytes total`);
-              console.log(`🎵 Final buffer state: ${incompleteByteBuffer.length} incomplete bytes remaining`);
               
               // Process any remaining incomplete bytes
               if (incompleteByteBuffer.length > 0) {
-                console.log(`🔧 Processing ${incompleteByteBuffer.length} remaining incomplete bytes`);
                 // If we have at least one complete sample, process it
                 if (incompleteByteBuffer.length >= 2) {
                   const completeSamples = Math.floor(incompleteByteBuffer.length / 2);
@@ -446,7 +425,6 @@ export default function ChatMessage({ message, isUser }) {
                     break;
                   }
                 }
-                console.log(`🎵 Scheduled ${remainingChunks} remaining audio chunks`);
                 
                 // Stop after a delay to let audio finish
                 setTimeout(() => {
@@ -477,9 +455,6 @@ export default function ChatMessage({ message, isUser }) {
                   
                   // Validate the audio data range
                   const hasValidData = int16Data.some(sample => Math.abs(sample) > 100);
-                  if (!hasValidData && ENABLE_AUDIO_LOGS) {
-                    console.warn("❌ Audio chunk appears to be silent/invalid");
-                  }
                   
                   // Append to our buffer
                   const newBuffer = new Int16Array(pcmBuffer.length + int16Data.length);
@@ -494,22 +469,17 @@ export default function ChatMessage({ message, isUser }) {
                 // Store any remaining incomplete bytes for next chunk
                 if (combinedBytes.length > completeBytes) {
                   incompleteByteBuffer = combinedBytes.slice(completeBytes);
-                  if (ENABLE_AUDIO_LOGS) {
-                    console.log(`🔧 Buffering ${incompleteByteBuffer.length} incomplete bytes for next chunk`);
-                  }
                 } else {
                   incompleteByteBuffer = new Uint8Array(0);
                 }
                 
               } catch (audioError) {
-                console.error("❌ Error processing audio chunk:", audioError);
                 // Reset incomplete buffer on error
                 incompleteByteBuffer = new Uint8Array(0);
               }
             }
           }
         } catch (streamError) {
-          console.error("❌ Stream processing error:", streamError);
           isPlaying = false;
           clearInterval(audioTimer);
           // Fallback to simple audio
@@ -521,7 +491,6 @@ export default function ChatMessage({ message, isUser }) {
       processStream();
 
     } catch (err) {
-      console.error("❌ fetchAndPlayStreaming error:", err);
       // Fallback to simple audio approach
       fetchAndPlay(text);
     }
@@ -689,7 +658,6 @@ export default function ChatMessage({ message, isUser }) {
                       fetchAndPlayStreaming(message.content);
                     }, 500);
                   } else {
-                    console.error("❌ Audio test failed, cannot play TTS");
                     toast.error("Audio not available - check browser permissions");
                   }
                 }}
