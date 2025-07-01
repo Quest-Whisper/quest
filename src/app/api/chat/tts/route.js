@@ -1,7 +1,7 @@
 import { GoogleGenAI, Modality } from "@google/genai";
 import { NextResponse } from "next/server";
 
-export const runtime = "edge";
+export const runtime = "node";
 
 export async function GET(request) {
   const url = new URL(request.url);
