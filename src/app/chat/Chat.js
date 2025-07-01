@@ -17,22 +17,24 @@ function Chat() {
   const [chatHistory, setChatHistory] = useState([]);
   // Initialize sidebar state based on screen size
   const [showSidebar, setShowSidebar] = useState(null); // null means not initialized
+  const [isMobile, setIsMobile] = useState(false);
   const { data: session, status } = useSession();
   const messagesEndRef = useRef(null);
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Initialize sidebar state based on screen size
+  // Initialize sidebar state and mobile detection
   useEffect(() => {
-    const initializeSidebar = () => {
-      const isMobile = window.innerWidth < 768;
+    const checkMobile = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
       // On mobile: default to hidden, on desktop/tablet: default to expanded
-      setShowSidebar(isMobile ? false : true);
+      setShowSidebar(mobile ? false : true);
     };
 
-    initializeSidebar();
-    window.addEventListener('resize', initializeSidebar);
-    return () => window.removeEventListener('resize', initializeSidebar);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
   // Auto-scroll to bottom when new messages arrive
@@ -270,10 +272,11 @@ function Chat() {
     );
   }
 
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className={`
+      flex bg-gray-50 overflow-hidden
+      ${isMobile ? 'h-[100dvh]' : 'h-screen'}
+    `}>
       {/* Sidebar Component */}
       <ChatSidebar
         showSidebar={showSidebar}
@@ -286,9 +289,9 @@ function Chat() {
       />
 
       {/* Main chat area */}
-      <div className="flex-1 flex flex-col relative bg-white">
+      <div className="flex-1 flex flex-col relative bg-white h-full">
         {/* Top bar */}
-        <div className="border-b border-gray-200 bg-white/80 backdrop-blur-sm p-4 flex items-center justify-between sticky top-0 z-30">
+        <div className="border-b border-gray-200 bg-white/80 backdrop-blur-sm p-4 flex items-center justify-between sticky top-0 z-30 shrink-0">
           <div className="flex items-center gap-3">
             {(showSidebar === false || (isMobile && showSidebar !== true)) && (
               <button
@@ -393,8 +396,8 @@ function Chat() {
             </motion.div>
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto bg-white pb-32 pt-8 chat-scroll">
-            <div className="max-w-4xl mx-auto px-4">
+          <div className="flex-1 overflow-y-auto bg-white chat-scroll relative">
+            <div className="max-w-4xl mx-auto px-4 pt-8 pb-4">
               <AnimatePresence mode="popLayout">
                 {messages.map((message, index) => (
                   <motion.div
@@ -456,14 +459,23 @@ function Chat() {
                   </div>
                 </motion.div>
               )}
+              
+              {/* Extra space for mobile keyboard */}
+              <div className={`${isMobile ? 'h-32' : 'h-16'}`} />
             </div>
             <div ref={messagesEndRef} />
           </div>
         )}
 
-        {/* Chat input at bottom */}
-        <div className="bg-white/90">
-          <div className="max-w-4xl mx-auto mb-[20px]">
+        {/* Chat input at bottom - Mobile optimized */}
+        <div className={`
+          bg-white/95 backdrop-blur-sm shrink-0
+          ${isMobile 
+            ? 'sticky bottom-0 pb-safe-area-inset-bottom' 
+            : 'relative'
+          }
+        `}>
+          <div className="max-w-4xl mx-auto pb-4 px-4">
             <ChatInput
               onSend={handleSendMessage}
               isLoading={isLoading}
