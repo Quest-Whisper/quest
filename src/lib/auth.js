@@ -23,7 +23,7 @@ export const authOptions = {
             "https://www.googleapis.com/auth/presentations",// For reading and writing presentations
           ].join(" "),
           access_type: "offline",
-          prompt: "consent",
+          prompt: "select_account",
         },
       },
     }),
