@@ -105,7 +105,8 @@ export default function ChatMessage({ message, isUser }) {
   // AudioContext configured once
   const audioContext = useMemo(() => {
     if (typeof window !== 'undefined') {
-      return new AudioContext();
+      const ctx = new AudioContext();
+      return ctx;
     }
     return null;
   }, []);
@@ -113,6 +114,7 @@ export default function ChatMessage({ message, isUser }) {
   // Test function to verify AudioContext is working
   const testAudio = async () => {
     if (!audioContext) {
+      console.error("❌ No AudioContext available");
       return false;
     }
 
@@ -138,6 +140,7 @@ export default function ChatMessage({ message, isUser }) {
       
       return true;
     } catch (error) {
+      console.error("❌ Audio test failed:", error);
       return false;
     }
   };
@@ -284,6 +287,7 @@ export default function ChatMessage({ message, isUser }) {
   // NEW streaming TTS playback
   async function fetchAndPlayStreaming(text) {
     if (!audioContext) {
+      console.error("❌ No AudioContext available");
       toast.error("Audio not available in this browser");
       return;
     }
@@ -312,7 +316,7 @@ export default function ChatMessage({ message, isUser }) {
 
       // 3) Confirm streaming support
       if (!res.body) {
-        // Fallback to simple audio approach
+        console.error("❌ No response.body – streaming unsupported, falling back to simple audio");
         return fetchAndPlay(text);
       }
 
@@ -326,6 +330,8 @@ export default function ChatMessage({ message, isUser }) {
       let pcmBuffer = new Int16Array(0);
       let nextPlayTime = audioContext.currentTime;
       let isPlaying = true;
+      let totalBytesReceived = 0;
+      let chunksScheduled = 0;
 
       // 5) Function to schedule and play audio chunks
       const scheduleAudioChunk = () => {
@@ -358,12 +364,14 @@ export default function ChatMessage({ message, isUser }) {
           }
           
           sourceNode.start(nextPlayTime);
+          chunksScheduled++;
           
           // Update next play time
           nextPlayTime += chunkDurationSeconds;
           
           return true;
         } catch (audioError) {
+          console.error("❌ Error scheduling audio chunk:", audioError);
           return false;
         }
       };
@@ -380,16 +388,22 @@ export default function ChatMessage({ message, isUser }) {
       // 7) Read and process streaming chunks - START IMMEDIATELY
       const processStream = async () => {
         try {
+          let chunkCount = 0;
+          
           while (true) {
             const result = await reader.read();
             const { done, value } = result;
+            chunkCount++;
             
             if (done) {
               // Let remaining audio play out, then cleanup
               setTimeout(() => {
                 // Schedule any remaining audio
+                let remainingChunks = 0;
                 while (pcmBuffer.length >= samplesPerChunk) {
-                  if (!scheduleAudioChunk()) {
+                  if (scheduleAudioChunk()) {
+                    remainingChunks++;
+                  } else {
                     break;
                   }
                 }
@@ -404,6 +418,8 @@ export default function ChatMessage({ message, isUser }) {
             }
 
             if (value && value.length > 0) {
+              totalBytesReceived += value.length;
+              
               // Convert raw bytes to Int16Array (assuming 16-bit PCM)
               const int16Data = new Int16Array(value.buffer, value.byteOffset, value.byteLength / 2);
               
@@ -418,6 +434,7 @@ export default function ChatMessage({ message, isUser }) {
             }
           }
         } catch (streamError) {
+          console.error("❌ Stream processing error:", streamError);
           isPlaying = false;
           clearInterval(audioTimer);
           // Fallback to simple audio
@@ -429,6 +446,7 @@ export default function ChatMessage({ message, isUser }) {
       processStream();
 
     } catch (err) {
+      console.error("❌ fetchAndPlayStreaming error:", err);
       // Fallback to simple audio approach
       fetchAndPlay(text);
     }
@@ -596,6 +614,7 @@ export default function ChatMessage({ message, isUser }) {
                       fetchAndPlayStreaming(message.content);
                     }, 500);
                   } else {
+                    console.error("❌ Audio test failed, cannot play TTS");
                     toast.error("Audio not available - check browser permissions");
                   }
                 }}

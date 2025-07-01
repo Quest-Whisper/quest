@@ -7,15 +7,30 @@ export async function GET(request) {
   const url = new URL(request.url);
   const message = url.searchParams.get("message") || "";
 
+  if (!message.trim()) {
+    return new NextResponse("Message is required", { status: 400 });
+  }
+
+  // Check for API key
+  if (!process.env.GEMINI_API_KEY) {
+    console.error("[TTS] Missing GEMINI_API_KEY");
+    return new NextResponse("API key not configured", { status: 500 });
+  }
+
   // 1) Create a ReadableStream to push raw-PCM chunks as they arrive
   let controllerRef;
   let sessionRef;
+  let isConnected = false;
   let connectionPromise;
   let connectionResolve;
+  let connectionReject;
+  let streamFinished = false;
+  let totalChunks = 0;
 
   // Create a promise that resolves when connection is ready
-  connectionPromise = new Promise((resolve) => {
+  connectionPromise = new Promise((resolve, reject) => {
     connectionResolve = resolve;
+    connectionReject = reject;
   });
 
   const stream = new ReadableStream({
@@ -23,11 +38,13 @@ export async function GET(request) {
       controllerRef = controller;
     },
     cancel(reason) {
+      console.error("[TTS] Stream cancelled:", reason);
+      streamFinished = true;
       if (sessionRef) {
         try {
           sessionRef.close();
         } catch (e) {
-          // Silent cleanup
+          console.error("[TTS] Error closing session:", e);
         }
       }
     },
@@ -36,34 +53,79 @@ export async function GET(request) {
   // 2) Set up Gemini WebSocket callbacks to enqueue each Base64 → Buffer chunk
   const callbacks = {
     onopen: () => {
+      isConnected = true;
       connectionResolve();
     },
-    onmessage: (msg) => {
-      // Check for audio data in the correct location: serverContent.modelTurn.parts[0].inlineData.data
-      let data = null;
+    onmessage: (message) => {
+      if (streamFinished) return;
       
-      if (msg.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data) {
-        data = msg.serverContent.modelTurn.parts[0].inlineData.data;
-      } else if (msg.serverContent?.media?.data) {
-        data = msg.serverContent.media.data;
-      }
-      
-      if (data && controllerRef) {
-        const buf = Buffer.from(data, "base64");
+      // Check for direct audio data first (this is the main audio stream)
+      if (message.data) {
         try {
-          controllerRef.enqueue(buf);
-        } catch (enqueueError) {
-          // Silent error handling
+          const buf = Buffer.from(message.data, "base64");
+          totalChunks++;
+          
+          if (controllerRef && !streamFinished) {
+            controllerRef.enqueue(buf);
+          }
+        } catch (bufferError) {
+          console.error("[TTS] Error creating buffer from base64:", bufferError);
+        }
+        return;
+      }
+
+      // Check for serverContent messages
+      if (message.serverContent) {
+        // Look for audio in modelTurn parts
+        if (message.serverContent.modelTurn?.parts) {
+          for (const part of message.serverContent.modelTurn.parts) {
+            if (part.inlineData?.data && part.inlineData?.mimeType?.includes('audio')) {
+              try {
+                const buf = Buffer.from(part.inlineData.data, "base64");
+                totalChunks++;
+                
+                if (controllerRef && !streamFinished) {
+                  controllerRef.enqueue(buf);
+                }
+              } catch (bufferError) {
+                console.error("[TTS] Error creating buffer from modelTurn part:", bufferError);
+              }
+            }
+          }
+        }
+        
+        // Check for completion signals
+        if (message.serverContent.turnComplete || message.serverContent.generationComplete) {
+          if (controllerRef && !streamFinished) {
+            streamFinished = true;
+            controllerRef.close();
+          }
+        }
+        
+        // Check for errors
+        if (message.serverContent.error) {
+          console.error("[TTS] Server error:", message.serverContent.error);
+          if (controllerRef && !streamFinished) {
+            streamFinished = true;
+            controllerRef.error(new Error(message.serverContent.error));
+          }
         }
       }
     },
     onerror: (err) => {
-      if (controllerRef) {
+      console.error("[TTS] WebSocket error:", err);
+      if (controllerRef && !streamFinished) {
+        streamFinished = true;
         controllerRef.error(err);
       }
+      connectionReject(err);
     },
-    onclose: () => {
-      if (controllerRef) {
+    onclose: (event) => {
+      if (event?.code !== 1000) {
+        console.log("[TTS] WebSocket closed - code:", event?.code, "reason:", event?.reason);
+      }
+      if (controllerRef && !streamFinished) {
+        streamFinished = true;
         controllerRef.close();
       }
     },
@@ -76,47 +138,72 @@ export async function GET(request) {
   });
 
   try {
-    sessionRef = await ai.live.connect({
-      model: "gemini-2.5-flash-preview-native-audio-dialog",
+    // Create the session with async iteration approach
+    const session = await ai.live.connect({
+      model: "gemini-2.0-flash-live-001",
       config: {
         responseModalities: [Modality.AUDIO],
         speechConfig: {
-          voiceConfig: { prebuiltVoiceConfig: { voiceName: "Algenib" } },
+          voiceConfig: { prebuiltVoiceConfig: { voiceName: "Charon" } },
         },
-        systemInstruction: {
-          parts: [
-            {
-              text: "You are a text-to-speech system. Your only job is to read the exact text provided by the user aloud, without adding any commentary, responses, or additional content. Simply speak the text as given."
-            }
-          ]
-        }
+        temperature: 0.7,
+        maxOutputTokens: 1000,
       },
       callbacks,
     });
+    
+    sessionRef = session;
 
     // Wait for the WebSocket to actually open
-    await connectionPromise;
+    const connectionTimeout = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error("Connection timeout")), 15000);
+    });
+    
+    await Promise.race([connectionPromise, connectionTimeout]);
 
-  } catch (err) {
-    return new NextResponse("Connection error", { status: 500 });
-  }
-
-  // 4) Send the user's text turn with clear instruction to just read it
-  try {
-    sessionRef.sendClientContent({
-      turns: [{ parts: [{ text: `Please read this text exactly as written: "${message}"` }] }],
+    // 4) Send the user's text turn
+    await session.sendClientContent({
+      turns: [{ 
+        role: "user",
+        parts: [{ text: `Please say this text in a tone that matches it: "${message}"` }] 
+      }],
       turnComplete: true,
     });
+
   } catch (err) {
-    return new NextResponse("Send error", { status: 500 });
+    console.error("[TTS] Connection failed:", err);
+    if (controllerRef && !streamFinished) {
+      streamFinished = true;
+      controllerRef.error(err);
+    }
+    return new NextResponse(`Connection error: ${err.message}`, { status: 500 });
   }
 
-  // 5) Return the streaming response
+  // 5) Set up a timeout to close the stream if no data is received
+  setTimeout(() => {
+    if (!streamFinished && totalChunks === 0) {
+      console.log("[TTS] Timeout - no audio data received");
+      if (controllerRef) {
+        streamFinished = true;
+        controllerRef.close();
+      }
+      if (sessionRef) {
+        try {
+          sessionRef.close();
+        } catch (e) {
+          console.error("[TTS] Error closing session on timeout:", e);
+        }
+      }
+    }
+  }, 30000); // 30 second timeout
+
+  // 6) Return the streaming response
   return new NextResponse(stream, {
     headers: {
       "Content-Type": "audio/pcm",
       "Cache-Control": "no-cache",
       "Connection": "keep-alive",
+      "Transfer-Encoding": "chunked",
     },
   });
 }
