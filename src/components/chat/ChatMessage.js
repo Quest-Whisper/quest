@@ -243,6 +243,10 @@ export default function ChatMessage({ message, isUser }) {
   function stripMarkdown(md) {
     return (
       md
+        // Remove sources block first (before other processing)
+        .replace(/sources:\s*\[[\s\S]*?\]\s*/gi, "")
+        // Remove AI response prefixes
+        .replace(/AI FINAL USER RESPONSE:\s*/i, "")
         // Remove code blocks (```…```)
         .replace(/```[\s\S]*?```/g, "")
         // Unwrap inline code `…`
