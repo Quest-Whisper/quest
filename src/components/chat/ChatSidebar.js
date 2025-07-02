@@ -9,68 +9,6 @@ import {
 import Image from 'next/image';
 import { useEffect } from 'react';
 
-// Animation variants for smoother transitions
-const sidebarVariants = {
-  hidden: { 
-    width: 0,
-    opacity: 0,
-    transition: { 
-      duration: 0.3, 
-      ease: [0.4, 0.0, 0.2, 1],
-      when: "afterChildren"
-    }
-  },
-  minimized: { 
-    width: 64,
-    opacity: 1,
-    transition: { 
-      duration: 0.4, 
-      ease: [0.4, 0.0, 0.2, 1],
-      when: "beforeChildren"
-    }
-  },
-  expanded: { 
-    width: 320,
-    opacity: 1,
-    transition: { 
-      duration: 0.4, 
-      ease: [0.4, 0.0, 0.2, 1],
-      when: "beforeChildren"
-    }
-  }
-};
-
-const contentVariants = {
-  hidden: {
-    opacity: 0,
-    transition: { duration: 0.2, ease: "easeOut" }
-  },
-  visible: {
-    opacity: 1,
-    transition: { 
-      duration: 0.3, 
-      ease: "easeOut",
-      staggerChildren: 0.03
-    }
-  }
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 8 },
-  visible: { 
-    opacity: 1, 
-    y: 0,
-    transition: { duration: 0.25, ease: [0.4, 0.0, 0.2, 1] }
-  }
-};
-
-const minimizedItemVariants = {
-  hidden: { opacity: 0 },
-  visible: { 
-    opacity: 1,
-    transition: { duration: 0.2, ease: "easeOut" }
-  }
-};
 
 export default function ChatSidebar({ 
   showSidebar, 
@@ -173,7 +111,7 @@ export default function ChatSidebar({
             : ''
         } bg-white border-r border-gray-200 flex flex-col overflow-hidden shadow-lg transition-all duration-300 ease-out`}
         animate={{
-          width: isHidden ? 0 : isMinimized ? 72 : 320,
+          width: isHidden ? 0 : isMinimized ? 72 : 290,
           opacity: isHidden ? 0 : 1
         }}
         transition={{ duration: 0.3, ease: [0.4, 0.0, 0.2, 1] }}
@@ -189,7 +127,7 @@ export default function ChatSidebar({
             transition={{ duration: 0.2, delay: 0.1 }}
           >
             {/* Minimized header */}
-            <div className="p-3 border-b border-gray-100 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
+            <div className="p-3 border-b border-gray-100">
               <div className="flex flex-col items-center gap-3">
               <Image 
                       src="/logo.png" 
@@ -242,7 +180,7 @@ export default function ChatSidebar({
             transition={{ duration: 0.2, delay: 0.1 }}
           >
             {/* Sidebar header */}
-            <div className="p-6 border-b border-gray-100 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
+            <div className="p-6 border-b border-gray-100 bg-white">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
                
@@ -282,7 +220,7 @@ export default function ChatSidebar({
               
               <motion.button
                 onClick={onNewChat}
-                className="w-full bg-gray-900 hover:bg-black text-white rounded-xl p-3 flex items-center gap-3 transition-all duration-200 hover:shadow-md"
+                className="w-full bg-gray-900 hover:bg-black text-white rounded-full p-3 flex items-center gap-3 transition-all duration-200 hover:shadow-md"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >
@@ -315,7 +253,7 @@ export default function ChatSidebar({
                   </p>
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-[1px]">
                   <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4 px-2">
                     Recent Conversations
                   </h2>
@@ -323,9 +261,9 @@ export default function ChatSidebar({
                   {chatHistory.map((chat, index) => (
                     <motion.div
                       key={chat.id}
-                      className={`group relative p-4 rounded-xl cursor-pointer transition-all duration-200 ${
+                      className={`group relative py-[5px] px-[10px] rounded-full cursor-pointer transition-all duration-200 ${
                         currentChatId === chat.id 
-                          ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 shadow-sm' 
+                          ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200' 
                           : 'hover:bg-gray-50 border border-transparent'
                       }`}
                       onClick={() => onLoadChat(chat.id)}
@@ -336,38 +274,18 @@ export default function ChatSidebar({
                       transition={{ delay: index * 0.05 }}
                       layout
                     >
-                      {/* Active indicator */}
-                      {currentChatId === chat.id && (
-                        <motion.div
-                          className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-gradient-to-b from-blue-500 to-indigo-600 rounded-r-full"
-                          layoutId="activeIndicator"
-                          transition={{ duration: 0.3, ease: [0.4, 0.0, 0.2, 1] }}
-                        />
-                      )}
-
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1 min-w-0 mr-3">
-                          <h3 className={`text-sm font-medium truncate mb-1 ${
-                            currentChatId === chat.id ? 'text-blue-900' : 'text-gray-900'
+                      <div className="flex items-center justify-between text-center">
+                        <div className="flex h-full min-w-0 mr-3 text-center">
+                          <h3 className={`text-sm truncate ${
+                            currentChatId === chat.id ? 'text-black font-bold' : 'text-gray-900 font-regular'
                           }`}>
                             {chat.title}
                           </h3>
-                          <div className="flex items-center gap-2">
-                            <p className={`text-xs ${
-                              currentChatId === chat.id ? 'text-blue-600' : 'text-gray-500'
-                            }`}>
-                              {formatDate(chat.updatedAt)}
-                            </p>
-                            <span className="text-xs text-gray-400">•</span>
-                            <p className="text-xs text-gray-400">
-                              {chat.messageCount} {chat.messageCount === 1 ? 'message' : 'messages'}
-                            </p>
-                          </div>
                         </div>
                         
                         <motion.button
                           onClick={(e) => handleDeleteChat(chat.id, e)}
-                          className="opacity-0 group-hover:opacity-100 p-2 rounded-lg hover:bg-red-50 transition-all duration-200 text-gray-400 hover:text-red-500"
+                          className="opacity-0 group-hover:opacity-100 p-2 rounded-full hover:bg-white transition-all duration-200 text-gray-400 hover:text-black"
                           title="Delete conversation"
                           whileHover={{ scale: 1.1 }}
                           whileTap={{ scale: 0.9 }}

@@ -16,6 +16,11 @@ const config = {
         laptop: "1024px",
         desktop: "1280px",
       },
+      fontFamily: {
+        sans: ["var(--font-rubik)", "system-ui", "sans-serif"],
+        rubik: ["var(--font-rubik)"],
+        mono: ["var(--font-geist-mono)"],
+      },
     },
   },
   darkMode: "class",

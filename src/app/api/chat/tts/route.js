@@ -189,7 +189,7 @@ export async function GET(request) {
     await session.sendClientContent({
       turns: [{ 
         role: "user",
-        parts: [{ text: `Please say this text in a tone that matches it, just start saying the folloing without anything extra: "${message}"` }] 
+        parts: [{ text: `Please say this text in a enthusiastic tone that matches it, just start saying the folloing without anything extra: "${message}"` }] 
       }],
       turnComplete: true,
     });

@@ -155,7 +155,12 @@ export default function ChatMessage({ message, isUser }) {
   const stopAudio = () => {
     // Stop the fetch request
     if (abortController) {
-      abortController.abort();
+      try {
+        abortController.abort();
+      } catch (e) {
+        // AbortController.abort() can throw "BodyStreamBuffer was aborted" error
+        // This is expected when stopping an ongoing stream, so we silently handle it
+      }
       setAbortController(null);
     }
 
@@ -502,7 +507,6 @@ export default function ChatMessage({ message, isUser }) {
       const processStream = async () => {
         try {
           let chunkCount = 0;
-          console.log(`[Audio] Starting to process stream for text: "${text.substring(0, 50)}..."`);
 
           while (true) {
             const result = await reader.read();
@@ -589,11 +593,9 @@ export default function ChatMessage({ message, isUser }) {
                       // Clear the buffer since we've scheduled everything
                       pcmBuffer = new Int16Array(0);
                     } catch (finalAudioError) {
-                      console.warn("Error scheduling final audio chunk:", finalAudioError);
+                      // Silently handle final audio chunk errors
                     }
                   }
-                  
-                  console.log(`[Audio] Stream finished. Scheduled ${remainingChunks} remaining chunks.`);
                 }
 
                 // Clear the timer
@@ -665,18 +667,23 @@ export default function ChatMessage({ message, isUser }) {
             }
           }
         } catch (streamError) {
-          console.error("[Audio] Stream processing error:", streamError);
+          // Check if this is an intentional abort
+          const isAborted = controller.signal.aborted || 
+                           streamError.name === 'AbortError' || 
+                           streamError.message?.includes('aborted');
+          
           streamFinished = true;
           clearInterval(audioTimer);
           setIsLoading(false);
+          
           // Only stop immediately if no audio is playing
           if (activeAudioNodes === 0) {
             setIsPlaying(false);
             setAbortController(null);
           }
-          // Only fallback if not aborted
-          if (!controller.signal.aborted) {
-            console.log("[Audio] Falling back to non-streaming playback");
+          
+          // Only fallback if not aborted (genuine error)
+          if (!isAborted) {
             fetchAndPlay(text);
           }
         }
@@ -685,11 +692,17 @@ export default function ChatMessage({ message, isUser }) {
       // Start processing immediately, don't wait
       processStream();
     } catch (err) {
+      // Check if this is an intentional abort
+      const isAborted = controller.signal.aborted || 
+                       err.name === 'AbortError' || 
+                       err.message?.includes('aborted');
+      
       setIsLoading(false);
       setIsPlaying(false);
       setAbortController(null);
-      // Only fallback if not aborted
-      if (!controller.signal.aborted) {
+      
+      // Only fallback if not aborted (genuine error)
+      if (!isAborted) {
         fetchAndPlay(text);
       }
     }
@@ -699,7 +712,7 @@ export default function ChatMessage({ message, isUser }) {
     await navigator.clipboard.writeText(message.content || "");
     toast.success("Copied to clipboard!", {
       style: {
-        background: "#10b981",
+        background: "#14171A",
         color: "white",
       },
     });

@@ -7,7 +7,7 @@ import ChatMessage from "@/components/chat/ChatMessage";
 import ChatSidebar from "@/components/chat/ChatSidebar";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Bars3Icon } from "@heroicons/react/24/outline";
-import Image from 'next/image';
+import Image from "next/image";
 
 function Chat() {
   const [messages, setMessages] = useState([]);
@@ -33,8 +33,8 @@ function Chat() {
     };
 
     checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
   // Auto-scroll to bottom when new messages arrive
@@ -51,7 +51,7 @@ function Chat() {
 
   // Check for chat ID in URL parameters
   useEffect(() => {
-    const chatId = searchParams.get('id');
+    const chatId = searchParams.get("id");
     if (chatId && chatHistory.length > 0) {
       loadChat(chatId);
     }
@@ -59,36 +59,36 @@ function Chat() {
 
   const loadChatHistory = async () => {
     try {
-      const response = await fetch('/api/chat');
+      const response = await fetch("/api/chat");
       if (response.ok) {
         const data = await response.json();
         setChatHistory(data.chats || []);
       }
     } catch (error) {
-      console.error('Error loading chat history:', error);
+      console.error("Error loading chat history:", error);
     }
   };
 
   const loadChat = (chatId) => {
-    const chat = chatHistory.find(c => c.id === chatId);
+    const chat = chatHistory.find((c) => c.id === chatId);
     if (chat) {
       setMessages(chat.messages);
       setCurrentChatId(chatId);
       // Update URL without triggering navigation
-      window.history.replaceState({}, '', `/chat?id=${chatId}`);
+      window.history.replaceState({}, "", `/chat?id=${chatId}`);
     }
   };
 
   const startNewChat = () => {
     setMessages([]);
     setCurrentChatId(null);
-    window.history.replaceState({}, '', '/chat');
+    window.history.replaceState({}, "", "/chat");
   };
 
   const handleDeleteChat = (chatId) => {
     // Remove from local state
-    setChatHistory(prev => prev.filter(c => c.id !== chatId));
-    
+    setChatHistory((prev) => prev.filter((c) => c.id !== chatId));
+
     // If currently viewing this chat, start a new one
     if (currentChatId === chatId) {
       startNewChat();
@@ -97,13 +97,13 @@ function Chat() {
 
   const handleToggleSidebar = () => {
     const isMobile = window.innerWidth < 768;
-    
+
     if (showSidebar === false) {
-      setShowSidebar(isMobile ? true : 'minimized'); // Show full on mobile, minimized on desktop
-    } else if (showSidebar === 'minimized') {
+      setShowSidebar(isMobile ? true : "minimized"); // Show full on mobile, minimized on desktop
+    } else if (showSidebar === "minimized") {
       setShowSidebar(true); // Expand to full
     } else {
-      setShowSidebar(isMobile ? false : 'minimized'); // Hide on mobile, minimize on desktop
+      setShowSidebar(isMobile ? false : "minimized"); // Hide on mobile, minimize on desktop
     }
   };
 
@@ -220,7 +220,7 @@ function Chat() {
       // Update chat ID if this was a new chat
       if (data.isNewChat && data.chatId) {
         setCurrentChatId(data.chatId);
-        window.history.replaceState({}, '', `/chat?id=${data.chatId}`);
+        window.history.replaceState({}, "", `/chat?id=${data.chatId}`);
         // Reload chat history to include the new chat
         loadChatHistory();
       }
@@ -273,10 +273,12 @@ function Chat() {
   }
 
   return (
-    <div className={`
+    <div
+      className={`
       flex bg-gray-50 overflow-hidden
-      ${isMobile ? 'h-[100dvh]' : 'h-screen'}
-    `}>
+      ${isMobile ? "h-[100dvh]" : "h-screen"}
+    `}
+    >
       {/* Sidebar Component */}
       <ChatSidebar
         showSidebar={showSidebar}
@@ -299,31 +301,37 @@ function Chat() {
                 className="p-2 rounded-xl hover:bg-gray-100 transition-colors group"
                 title="Show sidebar"
               >
-                <Bars3Icon className="w-5 h-5 text-gray-600 group-hover:text-gray-800" />
+                <Image
+                  src="/icons/menu_icon.png"
+                  alt="Expand sidebar"
+                  width={20}
+                  height={20}
+                  className="w-5 h-5 object-contain"
+                />
               </button>
             )}
-            {showSidebar === 'minimized' && !isMobile && (
+            {showSidebar === "minimized" && !isMobile && (
               <button
                 onClick={() => setShowSidebar(true)}
                 className="p-2 rounded-xl hover:bg-gray-100 transition-colors group"
                 title="Expand sidebar"
               >
-                                 <Image 
-                   src="/icons/expand_icon.png" 
-                   alt="Expand sidebar" 
-                   width={20} 
-                   height={20} 
-                   className="w-5 h-5 object-contain opacity-60 group-hover:opacity-80"
-                 />
+                <Image
+                  src="/icons/expand_icon.png"
+                  alt="Expand sidebar"
+                  width={20}
+                  height={20}
+                  className="w-5 h-5 object-contain opacity-60 group-hover:opacity-80"
+                />
               </button>
             )}
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
               <h2 className="text-lg font-semibold text-gray-800">
-                {currentChatId ? 
-                  chatHistory.find(c => c.id === currentChatId)?.title || 'Chat' : 
-                  'New Chat'
-                }
+                {currentChatId
+                  ? chatHistory.find((c) => c.id === currentChatId)?.title ||
+                    "Chat"
+                  : "New Chat"}
               </h2>
             </div>
           </div>
@@ -360,16 +368,17 @@ function Chat() {
                   </span>
                 </h1>
               </motion.div>
-              
+
               <motion.p
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.5, duration: 0.6 }}
                 className="text-lg text-slate-600 font-medium max-w-md mx-auto leading-relaxed"
               >
-                Ask me anything, and I'll help you explore ideas with thoughtful responses.
+                Ask me anything, and I'll help you explore ideas with thoughtful
+                responses.
               </motion.p>
-              
+
               <motion.div
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -404,22 +413,22 @@ function Chat() {
                     key={index}
                     layout
                     initial={{ opacity: 0, y: 30, scale: 0.95 }}
-                    animate={{ 
-                      opacity: 1, 
-                      y: 0, 
+                    animate={{
+                      opacity: 1,
+                      y: 0,
                       scale: 1,
                       transition: {
                         type: "spring",
                         stiffness: 500,
                         damping: 30,
                         duration: 0.4,
-                      }
+                      },
                     }}
-                    exit={{ 
-                      opacity: 0, 
-                      y: -20, 
+                    exit={{
+                      opacity: 0,
+                      y: -20,
                       scale: 0.95,
-                      transition: { duration: 0.2 }
+                      transition: { duration: 0.2 },
                     }}
                     className="mb-8"
                   >
@@ -439,7 +448,7 @@ function Chat() {
                   </motion.div>
                 ))}
               </AnimatePresence>
-              
+
               {isTyping && (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
@@ -451,35 +460,37 @@ function Chat() {
                     <div className="flex items-center space-x-2 text-slate-500">
                       <div className="flex space-x-1">
                         <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"></div>
-                        <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                        <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                        <div
+                          className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"
+                          style={{ animationDelay: "0.1s" }}
+                        ></div>
+                        <div
+                          className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"
+                          style={{ animationDelay: "0.2s" }}
+                        ></div>
                       </div>
                       <span className="text-sm">I'm thinking...</span>
                     </div>
                   </div>
                 </motion.div>
               )}
-              
+
               {/* Extra space for mobile keyboard */}
-              <div className={`${isMobile ? 'h-32' : 'h-16'}`} />
+              <div className={`${isMobile ? "h-32" : "h-16"}`} />
             </div>
             <div ref={messagesEndRef} />
           </div>
         )}
 
         {/* Chat input at bottom - Mobile optimized */}
-        <div className={`
+        <div
+          className={`
           bg-white/95 backdrop-blur-sm shrink-0
-          ${isMobile 
-            ? 'sticky bottom-0 pb-safe-area-inset-bottom' 
-            : 'relative'
-          }
-        `}>
+          ${isMobile ? "sticky bottom-0 pb-safe-area-inset-bottom" : "relative"}
+        `}
+        >
           <div className="max-w-4xl mx-auto pb-4 px-4">
-            <ChatInput
-              onSend={handleSendMessage}
-              isLoading={isLoading}
-            />
+            <ChatInput onSend={handleSendMessage} isLoading={isLoading} />
           </div>
         </div>
       </div>

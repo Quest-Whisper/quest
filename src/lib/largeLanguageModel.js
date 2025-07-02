@@ -211,7 +211,7 @@ const mcpTools = [
   // Gmail Tools
   {
     name: "listGmailMessages",
-    description: "List emails from user's Gmail inbox",
+    description: "To get user's inbox messages",
     parameters: {
       type: "OBJECT",
       properties: {
@@ -238,7 +238,7 @@ const mcpTools = [
   },
   {
     name: "getGmailMessage",
-    description: "Get detailed content of a specific email",
+    description: "To read full email content",
     parameters: {
       type: "OBJECT",
       properties: {
@@ -259,8 +259,8 @@ const mcpTools = [
     }
   },
   {
-    name: "sendGmailMessage",
-    description: "Send an email through Gmail",
+    name: "gmailSendEmail",
+    description: "To send emails via Gmail",
     parameters: {
       type: "OBJECT",
       properties: {
@@ -284,8 +284,8 @@ const mcpTools = [
   },
   // Drive Tools
   {
-    name: "listDriveFiles",
-    description: "List files in user's Google Drive",
+    name: "driveListFiles",
+    description: "To search and list files in Google Drive",
     parameters: {
       type: "OBJECT",
       properties: {
@@ -311,8 +311,8 @@ const mcpTools = [
     }
   },
   {
-    name: "getDriveFile",
-    description: "Get metadata of a specific Google Drive file",
+    name: "driveGetFile",
+    description: "To get specific file metadata",
     parameters: {
       type: "OBJECT",
       properties: {
@@ -334,8 +334,8 @@ const mcpTools = [
   },
   // Google Docs Tools
   {
-    name: "getGoogleDoc",
-    description: "Get content of a Google Doc",
+    name: "docsReadDocument",
+    description: "To extract text from Google Docs",
     parameters: {
       type: "OBJECT",
       properties: {
@@ -356,8 +356,8 @@ const mcpTools = [
     }
   },
   {
-    name: "createGoogleDoc",
-    description: "Create a new Google Doc",
+    name: "docsCreateDocument",
+    description: "To create new Google Docs",
     parameters: {
       type: "OBJECT",
       properties: {
@@ -380,8 +380,8 @@ const mcpTools = [
   },
   // Google Slides Tools
   {
-    name: "createGoogleSlides",
-    description: "Create a new Google Slides presentation",
+    name: "slidesCreatePresentation",
+    description: "To create presentations with slides",
     parameters: {
       type: "OBJECT",
       properties: {
@@ -418,8 +418,8 @@ const mcpTools = [
     }
   },
   {
-    name: "getGoogleSlides",
-    description: "Get content of a Google Slides presentation",
+    name: "slidesReadPresentation",
+    description: "To read existing presentation content",
     parameters: {
       type: "OBJECT",
       properties: {
@@ -441,8 +441,8 @@ const mcpTools = [
   },
   // Google Sheets Tools
   {
-    name: "getGoogleSheet",
-    description: "Get content of a Google Sheet",
+    name: "sheetsReadSpreadsheet",
+    description: "To read data from spreadsheets",
     parameters: {
       type: "OBJECT",
       properties: {
@@ -468,8 +468,8 @@ const mcpTools = [
   },
   // Google Forms Tools
   {
-    name: "createGoogleForm",
-    description: "Create a new Google Form",
+    name: "formsCreateForm",
+    description: "To create forms with questions",
     parameters: {
       type: "OBJECT",
       properties: {
@@ -503,7 +503,7 @@ const mcpTools = [
   },
   {
     name: "getGoogleForm",
-    description: "Get content and responses of a Google Form",
+    description: "To get form structure and responses",
     parameters: {
       type: "OBJECT",
       properties: {
@@ -525,8 +525,8 @@ const mcpTools = [
   },
   // Google Calendar Tools
   {
-    name: "listCalendarEvents",
-    description: "List events from user's Google Calendar",
+    name: "calendarGetEvents",
+    description: "To retrieve upcoming calendar events",
     parameters: {
       type: "OBJECT",
       properties: {
@@ -552,8 +552,8 @@ const mcpTools = [
     }
   },
   {
-    name: "createCalendarEvent",
-    description: "Create a new event in Google Calendar",
+    name: "calendarCreateEvent",
+    description: "To create new calendar events",
     parameters: {
       type: "OBJECT",
       properties: {
@@ -584,8 +584,8 @@ const mcpTools = [
     }
   },
   {
-    name: "getImages",
-    description: "Get images from Unsplash",
+    name: "unsplashSearchImages",
+    description: "To find images for presentations/documents",
     parameters: {
       type: "OBJECT",
       properties: {

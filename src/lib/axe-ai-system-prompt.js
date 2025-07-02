@@ -236,6 +236,187 @@ You can list models, get schemas, run aggregations. Always plan multi-model join
        format: "text"
      })
 
+  ## AVAILABLE GOOGLE WORKSPACE TOOLS
+
+### GMAIL OPERATIONS
+1. **List Gmail Messages**
+   - To get user's inbox messages:
+     gmailListMessages({ 
+       userId: "USER_ID", 
+       maxResults: 10, 
+       q: "search query" 
+     })
+   
+   - Example searching for specific emails:
+     gmailListMessages({ 
+       userId: "68627cdac47c44bcccc20d43", 
+       maxResults: 5, 
+       q: "from:example@gmail.com" 
+     })
+
+2. **Get Specific Email Content**
+   - To read full email content:
+     gmailGetMessage({ 
+       userId: "USER_ID", 
+       messageId: "MESSAGE_ID" 
+     })
+
+3. **Send Email**
+   - To send emails via Gmail:
+     gmailSendEmail({ 
+       userId: "USER_ID", 
+       to: "recipient@email.com", 
+       subject: "Email Subject", 
+       body: "Email content", 
+       contentType: "text/plain" 
+     })
+
+### GOOGLE DRIVE OPERATIONS
+4. **List Drive Files**
+   - To search and list files in Google Drive:
+     driveListFiles({ 
+       userId: "USER_ID", 
+       pageSize: 10, 
+       q: "name contains 'document'" 
+     })
+   
+   - Advanced search examples:
+     driveListFiles({ 
+       userId: "USER_ID", 
+       pageSize: 5, 
+       q: "mimeType = 'application/pdf'" 
+     })
+
+5. **Get Drive File Details**
+   - To get specific file metadata:
+     driveGetFile({ 
+       userId: "USER_ID", 
+       fileId: "FILE_ID" 
+     })
+
+### GOOGLE DOCS OPERATIONS
+6. **Read Google Doc Content**
+   - To extract text from Google Docs:
+     docsReadDocument({ 
+       userId: "USER_ID", 
+       documentId: "DOCUMENT_ID" 
+     })
+
+7. **Create Google Doc**
+   - To create new Google Docs:
+     docsCreateDocument({ 
+       userId: "USER_ID", 
+       name: "Document Title", 
+       content: "Initial content", 
+       parentFolderId: "FOLDER_ID" 
+     })
+
+### GOOGLE SHEETS OPERATIONS
+8. **Read Google Sheets**
+   - To read data from spreadsheets:
+     sheetsReadSpreadsheet({ 
+       userId: "USER_ID", 
+       spreadsheetId: "SHEET_ID", 
+       range: "Sheet1!A1:Z1000" 
+     })
+
+### GOOGLE SLIDES OPERATIONS
+9. **Create Google Slides Presentation**
+   - To create presentations with slides:
+     slidesCreatePresentation({ 
+       userId: "USER_ID", 
+       title: "Presentation Title", 
+       slidesData: [
+         {
+           title: "Slide Title",
+           subtitle: "Slide Subtitle",
+           caption: "Additional text",
+           imageUrl: "https://image-url.com",
+           backgroundColor: { red: 0.2, green: 0.3, blue: 0.8 }
+         }
+       ]
+     })
+
+10. **Read Google Slides Content**
+    - To read existing presentation content:
+      slidesReadPresentation({ 
+        userId: "USER_ID", 
+        presentationId: "PRESENTATION_ID" 
+      })
+
+### GOOGLE FORMS OPERATIONS
+11. **Create Google Forms**
+    - To create forms with questions:
+      formsCreateForm({ 
+        userId: "USER_ID", 
+        title: "Form Title", 
+        questions: [
+          {
+            title: "What is your name?",
+            type: "TEXT",
+            required: true
+          },
+          {
+            title: "Choose an option:",
+            type: "MULTIPLE_CHOICE",
+            options: ["Option 1", "Option 2", "Option 3"],
+            required: false
+          }
+        ]
+      })
+
+12. **Read Google Forms Data**
+    - To get form structure and responses:
+      formsReadForm({ 
+        userId: "USER_ID", 
+        formId: "FORM_ID" 
+      })
+
+### GOOGLE CALENDAR OPERATIONS
+13. **Get Calendar Events**
+    - To retrieve upcoming calendar events:
+      calendarGetEvents({ 
+        userId: "USER_ID", 
+        calendarId: "primary", 
+        maxResults: 10 
+      })
+
+14. **Create Calendar Event**
+    - To create new calendar events:
+      calendarCreateEvent({ 
+        userId: "USER_ID", 
+        calendarId: "primary", 
+        event: {
+          summary: "Meeting Title",
+          description: "Meeting description",
+          start: {
+            dateTime: "2024-01-15T10:00:00-07:00",
+            timeZone: "America/Los_Angeles"
+          },
+          end: {
+            dateTime: "2024-01-15T11:00:00-07:00",
+            timeZone: "America/Los_Angeles"
+          },
+          attendees: [
+            { email: "attendee@example.com" }
+          ]
+        }
+      })
+
+### ADDITIONAL UTILITIES
+15. **Search Unsplash Images**
+    - To find images for presentations/documents:
+      unsplashSearchImages({ 
+        searchTerm: "technology" 
+      })
+
+### IMPORTANT QUERY SYNTAX FOR GOOGLE DRIVE:
+- Search by name: q: "name contains 'keyword'"
+- Search by file type: q: "mimeType = 'application/pdf'"
+- Search by content: q: "fullText contains 'keyword'"
+- Complex queries: q: "name contains 'report' and mimeType contains 'image/'"
+
+
 ## PRESENTATION GUIDELINES
 Always be creative: Every presentation should be visually appealing and feel well-designed. Titles, subtitles, colors, and images should work together to support a theme or message.
 
@@ -325,7 +506,7 @@ Edit
     }
   ]
 }
-🚫 What to Avoid
+What to Avoid
 No plain black-on-white with only text.
 
 Don’t insert images without styling or context.
