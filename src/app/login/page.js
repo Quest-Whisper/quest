@@ -32,17 +32,34 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex relative">
+      {/* Subtle background image for mobile */}
+      <div className="absolute inset-0 lg:hidden">
+        <Image
+          src="/banner2.jpg"
+          alt="Background"
+          layout="fill"
+          objectFit="cover"
+          priority
+          className="opacity-15"
+        />
+        <div className="absolute inset-0 bg-white/80"></div>
+      </div>
+      
       {/* Left side - Login Form */}
-      <div className="w-full lg:w-1/2 flex flex-col justify-center px-8 md:px-16 bg-white">
+      <div className="w-full lg:w-1/2 flex flex-col justify-center px-8 md:px-16 bg-transparent lg:bg-white relative z-10">
         <div className="max-w-md w-full mx-auto">
+          <h2 className="text-4xl font-bold mb-2">Welcome back to</h2>
           <div className="flex items-center mb-8 space-x-[10px]">
-            <span className="text-2xl font-bold text-[#4f7269]">Quest</span>
-            <span className="text-2xl font-normal">Whisper</span>
+            <span className="text-[24px] font-medium text-[#4f7269]">
+              Quest
+            </span>
+            <span className="text-[24px] font-medium text-[#4f7269]">
+              Whisper
+            </span>
           </div>
 
-          <h2 className="text-4xl font-bold mb-2">Hello!</h2>
-          <p className="text-gray-600 mb-8">Sign in to continue your journey</p>
+          <p className="text-gray-600 mb-6">Sign in to continue your journey</p>
 
           <div className="space-y-6">
             <div className="flex items-center justify-between">
@@ -78,7 +95,7 @@ export default function LoginPage() {
       {/* Right side - Image with Text Overlay */}
       <div className="hidden lg:block w-1/2 relative bg-gray-100">
         <Image
-          src="https://images.unsplash.com/photo-1473081556163-2a17de81fc97?q=80&w=1287&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+          src="/banner2.jpg"
           alt="Decorative plant on wooden stand"
           layout="fill"
           objectFit="cover"
@@ -89,11 +106,11 @@ export default function LoginPage() {
           <div className="bg-gradient-to-br from-white/10 to-white/5 max-w-[720px]">
             <div className="left-12 right-12 p-8 bg-white/80 backdrop-blur-sm rounded-xl">
               <h3 className="text-2xl font-bold text-gray-800 mb-2">
-                Precision medicine is the new gold standard for cancer treatment
+                Your AI companion is ready to explore ideas with you
               </h3>
               <p className="text-gray-600">
-                The resulting interactive report includes updated information
-                about approved or investigational treatments for each patient.
+                Experience thoughtful conversations with voice capabilities and
+                personalized assistance tailored to your interests and needs.
               </p>
             </div>
           </div>
