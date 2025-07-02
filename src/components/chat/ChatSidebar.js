@@ -134,7 +134,7 @@ export default function ChatSidebar({
                       alt="QuestWhisper" 
                       width={54} 
                       height={54} 
-                      className="object-contain border border-black rounded-full"
+                      className="object-contain border-[2px] bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-full"
                     /> 
                 
                 <motion.button
@@ -189,7 +189,7 @@ export default function ChatSidebar({
                       alt="QuestWhisper" 
                       width={54} 
                       height={54} 
-                      className="object-contain border border-black rounded-full"
+                      className="object-contain border-[2px] border-[#292F33] bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-full"
                     /> 
                 </div>
                 <div className="flex items-center gap-1">

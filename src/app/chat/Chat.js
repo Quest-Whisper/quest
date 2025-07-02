@@ -356,7 +356,7 @@ function Chat() {
                   ease: "easeInOut",
                 }}
               >
-                <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4 relative">
+                <h1 className="text-[26px] md:text-[36px] lg:text-[52px] font-bold mb-4 relative">
                   <span
                     className="bg-gradient-to-r from-slate-900 via-blue-700 to-slate-600 bg-clip-text text-transparent"
                     style={{
@@ -373,7 +373,7 @@ function Chat() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.5, duration: 0.6 }}
-                className="text-lg text-slate-600 font-medium max-w-md mx-auto leading-relaxed"
+                className="text-[16px] text-slate-600 font-medium max-w-md mx-auto leading-relaxed"
               >
                 Ask me anything, and I'll help you explore ideas with thoughtful
                 responses.
