@@ -56,15 +56,11 @@ export const authOptions = {
               ...tokenUpdate,
             });
           } else {
-            // Update existing user's Google ID if not set
-            if (!dbUser.googleId) {
-              dbUser.googleId = profile.sub;
-              // Update user with new tokens if needed
-              await User.updateOne(
-                { email: user.email },
-                { $set: tokenUpdate }
-              );
-            }
+            // Always update user's tokens on every login to refresh them
+            await User.updateOne(
+              { email: user.email },
+              { $set: tokenUpdate }
+            );
           }
 
           return true;
@@ -163,6 +159,94 @@ export async function isAuthenticated(request) {
     return authenticatedUser;
   } catch (error) {
     console.error("Authentication error in isAuthenticated:", error);
+    return null;
+  }
+}
+
+/**
+ * Refreshes the Google access token using the refresh token
+ * @param {string} refreshToken - The Google refresh token
+ * @returns {Object|null} The new token data or null if refresh failed
+ */
+export async function refreshGoogleToken(refreshToken) {
+  try {
+    const response = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        client_id: process.env.GOOGLE_CLIENT_ID,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET,
+        refresh_token: refreshToken,
+        grant_type: 'refresh_token',
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('Failed to refresh Google token:', response.status);
+      return null;
+    }
+
+    const tokenData = await response.json();
+    
+    return {
+      accessToken: tokenData.access_token,
+      expiresAt: Math.floor(Date.now() / 1000) + tokenData.expires_in,
+      refreshToken: tokenData.refresh_token || refreshToken, // Google may return a new refresh token
+    };
+  } catch (error) {
+    console.error('Error refreshing Google token:', error);
+    return null;
+  }
+}
+
+/**
+ * Gets a valid Google access token for a user, refreshing if necessary
+ * @param {string} userId - The user's ID
+ * @returns {string|null} A valid access token or null if unable to get one
+ */
+export async function getValidGoogleAccessToken(userId) {
+  try {
+    await connectToDatabase();
+    const user = await User.findById(userId);
+    
+    if (!user || !user.googleRefreshToken) {
+      return null;
+    }
+
+    // Check if token is still valid (with 5 minute buffer)
+    const now = new Date();
+    const tokenExpiry = user.googleTokenExpiresAt;
+    const bufferTime = 5 * 60 * 1000; // 5 minutes in milliseconds
+
+    if (tokenExpiry && tokenExpiry > new Date(now.getTime() + bufferTime)) {
+      // Token is still valid
+      return user.googleAccessToken;
+    }
+
+    // Token is expired or close to expiring, refresh it
+    const newTokenData = await refreshGoogleToken(user.googleRefreshToken);
+    
+    if (!newTokenData) {
+      return null;
+    }
+
+    // Update user with new token data
+    await User.updateOne(
+      { _id: userId },
+      {
+        $set: {
+          googleAccessToken: newTokenData.accessToken,
+          googleTokenExpiresAt: new Date(newTokenData.expiresAt * 1000),
+          googleRefreshToken: newTokenData.refreshToken,
+        }
+      }
+    );
+
+    return newTokenData.accessToken;
+  } catch (error) {
+    console.error('Error getting valid Google access token:', error);
     return null;
   }
 }
