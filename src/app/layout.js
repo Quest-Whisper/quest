@@ -13,38 +13,24 @@ const rubik = Rubik({
 export const metadata = {
   title: "Quest Whisper - Your AI Companion",
   description: "Experience thoughtful conversations with voice capabilities and personalized assistance. Manage Google Workspace, search the web, and get real-time information through natural voice commands.",
-  keywords: "AI assistant, voice commands, Google Workspace, AI companion, artificial intelligence, voice AI, productivity",
   authors: [{ name: "QuestWhisper Team" }],
   creator: "QuestWhisper",
   publisher: "QuestWhisper",
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 1,
-    userScalable: false,
-    viewportFit: 'cover'
-  },
+  viewport: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover",
   openGraph: {
     type: 'website',
     locale: 'en_US',
-    url: 'https://quest--questwhisper-caf40.us-central1.hosted.app',
+    url: 'https://iwhispered.com',
     siteName: 'QuestWhisper',
     title: 'QuestWhisper - Your AI Companion',
     description: 'Experience thoughtful conversations with voice capabilities and personalized assistance. Manage Google Workspace, search the web, and get real-time information through natural voice commands.',
     images: [
       {
-        url: '/api/og-image',
+        url: '/og_banner.png',
         width: 1200,
         height: 630,
         alt: 'QuestWhisper - Your AI Companion',
         type: 'image/png',
-      },
-      {
-        url: '/banner2.jpg',
-        width: 1200,
-        height: 630,
-        alt: 'QuestWhisper - Your AI Companion',
-        type: 'image/jpeg',
       }
     ],
   },
@@ -54,7 +40,7 @@ export const metadata = {
     creator: '@questwhisper',
     title: 'QuestWhisper - Your AI Companion',
     description: 'Experience thoughtful conversations with voice capabilities and personalized assistance.',
-    images: ['/api/og-image'],
+    images: ['/og_banner.png'],
   },
   robots: {
     index: true,
@@ -67,12 +53,18 @@ export const metadata = {
       'max-snippet': -1,
     },
   },
-  metadataBase: new URL('https://quest--questwhisper-caf40.us-central1.hosted.app'),
+  metadataBase: new URL('https://iwhispered.com'),
 };
+
 
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
+      <head>
+        <meta name="keywords" content="AI assistant, voice commands, Google Workspace, AI companion, artificial intelligence, voice AI, productivity" />
+        <meta name="theme-color" content="#4f7269" />
+        <link rel="icon" href="/favicon.ico" />
+      </head>
       <body
         className={`${rubik.variable} antialiased`}
       >
