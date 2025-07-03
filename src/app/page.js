@@ -90,8 +90,7 @@ export default function Home() {
               >
                 Your all-in-one AI workspace. QuestWhisper connects to your
                 Gmail, Google Drive, Sheets, Docs, Calendar, and the entire web
-                - all through natural voice conversation powered by Google's
-                Gemini AI.
+                - all through natural voice conversation powered by AI.
               </motion.p>
 
               <motion.div
