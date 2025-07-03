@@ -4,10 +4,12 @@ import {
   PlusIcon, 
   TrashIcon,
   XMarkIcon,
-  Bars3Icon
+  Bars3Icon,
+  ArrowRightOnRectangleIcon
 } from "@heroicons/react/24/outline";
 import Image from 'next/image';
 import { useEffect } from 'react';
+import { signOut, useSession } from 'next-auth/react';
 
 
 export default function ChatSidebar({ 
@@ -19,6 +21,16 @@ export default function ChatSidebar({
   onLoadChat, 
   onDeleteChat 
 }) {
+  const { data: session } = useSession();
+
+  const handleLogout = async () => {
+    try {
+      await signOut({ callbackUrl: '/login' });
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
+
   const formatDate = (timestamp) => {
     if (!timestamp) return 'Unknown date';
     const date = new Date(timestamp);
@@ -130,11 +142,11 @@ export default function ChatSidebar({
             <div className="p-3 border-b border-gray-100">
               <div className="flex flex-col items-center gap-3">
               <Image 
-                      src="/logo.png" 
+                      src="/whisper_logo.png" 
                       alt="QuestWhisper" 
                       width={54} 
                       height={54} 
-                      className="object-contain border-[2px] bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-full"
+                      className="object-contain"
                     /> 
                 
                 <motion.button
@@ -149,8 +161,8 @@ export default function ChatSidebar({
               </div>
             </div>
 
-            {/* Expand button */}
-            <div className="flex p-3 border-t border-gray-100 justify-center">
+            {/* Expand button and logout */}
+            <div className="flex flex-col p-3 border-t border-gray-100 items-center gap-3">
               <motion.button
                 onClick={() => setShowSidebar(true)}
                 className="w-fit p-2.5 rounded-xl hover:bg-gray-100 transition-colors text-gray-600 hover:text-gray-800"
@@ -165,6 +177,16 @@ export default function ChatSidebar({
                   height={20} 
                   className="w-8 h-8 object-contain"
                 />
+              </motion.button>
+              
+              <motion.button
+                onClick={handleLogout}
+                className="w-fit p-2.5 rounded-xl hover:bg-red-50 transition-colors text-gray-600 hover:text-red-600"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                title="Logout"
+              >
+                <ArrowRightOnRectangleIcon className="w-5 h-5" />
               </motion.button>
             </div>
           </motion.div>
@@ -185,11 +207,11 @@ export default function ChatSidebar({
                 <div className="flex items-center gap-3">
                
                     <Image 
-                      src="/logo.png" 
+                      src="/whisper_logo.png" 
                       alt="QuestWhisper" 
                       width={54} 
                       height={54} 
-                      className="object-contain border-[2px] border-[#292F33] bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-full"
+                      className="object-contain"
                     /> 
                 </div>
                 <div className="flex items-center gap-1">
@@ -307,6 +329,40 @@ export default function ChatSidebar({
 
             {/* Footer */}
             <div className="p-4 border-t border-gray-100 bg-gradient-to-r from-gray-50/50 to-gray-100/50">
+              {/* User info and logout */}
+              {session?.user && (
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    {session.user.image && (
+                      <Image
+                        src={session.user.image}
+                        alt={session.user.name || 'User'}
+                        width={32}
+                        height={32}
+                        className="rounded-full"
+                      />
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-800 truncate">
+                        {session.user.name}
+                      </p>
+                      <p className="text-xs text-gray-500 truncate">
+                        {session.user.email}
+                      </p>
+                    </div>
+                  </div>
+                  <motion.button
+                    onClick={handleLogout}
+                    className="p-2 rounded-lg hover:bg-red-50 transition-colors text-gray-600 hover:text-red-600 flex-shrink-0"
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    title="Logout"
+                  >
+                    <ArrowRightOnRectangleIcon className="w-5 h-5" />
+                  </motion.button>
+                </div>
+              )}
+              
               <div className="text-center">
                 <p className="text-xs text-gray-500 font-medium">
                   Powered by QuestWhisper AI

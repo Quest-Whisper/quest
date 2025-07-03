@@ -15,7 +15,7 @@ export default function TermsOfServicePage() {
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-2">
               <Image
-                src="/whisper_logo.webp"
+                src="/whisper_logo.png"
                 alt="QuestWhisper Logo"
                 width={32}
                 height={32}

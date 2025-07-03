@@ -45,16 +45,27 @@ export default function LoginPage() {
         />
         <div className="absolute inset-0 bg-white/80"></div>
       </div>
-      
+
       {/* Left side - Login Form */}
       <div className="w-full lg:w-1/2 flex flex-col justify-center px-8 md:px-16 bg-transparent lg:bg-white relative z-10">
         <div className="max-w-md w-full mx-auto">
-          <h2 className="text-4xl font-bold mb-2">Welcome back to</h2>
+          <div className="flex w-full justify-center mb-[50px] ">
+            <Image
+              src="/whisper_logo.png"
+              alt="Decorative plant on wooden stand"
+              width={200}
+              height={200}
+              objectFit="cover"
+              priority
+            />
+          </div>
+
+          <h2 className="text-[24px] font-medium mb-2">Welcome back to</h2>
           <div className="flex items-center mb-8 space-x-[10px]">
-            <span className="text-[24px] font-medium text-[#4f7269]">
+            <span className="text-[34px] font-bold text-[#4f7269]">
               Quest
             </span>
-            <span className="text-[24px] font-medium text-[#4f7269]">
+            <span className="text-[34px] font-bold text-[#4f7269]">
               Whisper
             </span>
           </div>
@@ -63,7 +74,10 @@ export default function LoginPage() {
 
           <div className="space-y-6">
             <div className="flex items-center justify-between">
-              <a href="/privacy-policy" className="text-sm text-[#4f7269] hover:underline">
+              <a
+                href="/privacy-policy"
+                className="text-sm text-[#4f7269] hover:underline"
+              >
                 Learn about our privacy terms?
               </a>
             </div>
@@ -85,9 +99,12 @@ export default function LoginPage() {
 
           <p className="mt-6 text-center text-sm text-gray-500">
             Having trouble getting started?{" "}
-            <a href="https://mail.google.com/mail/?view=cm&fs=1&to=support@iwhispered.com&su=QuestWhisper%20Support%20Request"
-                target="_blank"
-                rel="noopener noreferrer" className="text-[#4f7269] hover:underline">
+            <a
+              href="https://mail.google.com/mail/?view=cm&fs=1&to=support@iwhispered.com&su=QuestWhisper%20Support%20Request"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#4f7269] hover:underline"
+            >
               Contact support
             </a>
           </p>
