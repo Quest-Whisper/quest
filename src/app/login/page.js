@@ -63,7 +63,7 @@ export default function LoginPage() {
 
           <div className="space-y-6">
             <div className="flex items-center justify-between">
-              <a href="#" className="text-sm text-[#4f7269] hover:underline">
+              <a href="/privacy-policy" className="text-sm text-[#4f7269] hover:underline">
                 Learn about our privacy terms?
               </a>
             </div>
@@ -85,7 +85,7 @@ export default function LoginPage() {
 
           <p className="mt-6 text-center text-sm text-gray-500">
             Having trouble getting started?{" "}
-            <a href="#" className="text-[#4f7269] hover:underline">
+            <a href="mailto:support@iwhispered.com" className="text-[#4f7269] hover:underline">
               Contact support
             </a>
           </p>

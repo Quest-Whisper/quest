@@ -834,12 +834,12 @@ export default function Home() {
                 className="rounded"
               />
               <span className="text-sm text-gray-600">
-                © 2024 QuestWhisper. All rights reserved.
+                © 2025 QuestWhisper. All rights reserved.
               </span>
             </div>
             <div className="flex space-x-6">
               <a
-                href="#"
+                href="/privacy-policy"
                 className="text-sm text-gray-600 hover:text-[#4f7269] transition-colors"
               >
                 Privacy
@@ -851,7 +851,7 @@ export default function Home() {
                 Terms
               </a>
               <a
-                href="#"
+                href="mailto:support@iwhispered.com"
                 className="text-sm text-gray-600 hover:text-[#4f7269] transition-colors"
               >
                 Support
