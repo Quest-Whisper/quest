@@ -129,7 +129,7 @@ const audioContext = new AudioContext();
   }
 }
 
-export default function ChatMessage({ message, isUser }) {
+export default function ChatMessage({ message, isUser, onRetry, onResendLastMessage }) {
   const [parsedSources, setParsedSources] = useState([]);
   const [wavUrl, setWavUrl] = useState(null);
   const [isHovered, setIsHovered] = useState(false);
@@ -140,9 +140,23 @@ export default function ChatMessage({ message, isUser }) {
   const [showShareModal, setShowShareModal] = useState(false);
 
   const isError = !isUser && message.isError;
+  // Check if this is the specific error message that needs retry
+  const isRetryableError = !isUser && message.content?.trim() === "I apologize, but I couldn't process your request. Please try again.";
+  const isRetryable = isRetryableError || (!isUser && message.isRetryable && onRetry);
   const sources = message.sources?.length ? message.sources : parsedSources;
   const hasSources = !isUser && sources.length > 0;
   const hasDisplayImage = !isUser && message.displayImage;
+
+  // Handle retry for the specific error message
+  const handleRetry = () => {
+    if (onRetry) {
+      // Use the provided onRetry function if available
+      onRetry();
+    } else if (isRetryableError && onResendLastMessage) {
+      // For the specific error message, resend the last user message
+      onResendLastMessage();
+    }
+  };
 
   // AudioContext configured once
   const audioContext = useMemo(() => {
@@ -928,7 +942,7 @@ export default function ChatMessage({ message, isUser }) {
               className={`${
                 isUser
                   ? "bg-slate-200 rounded-3xl px-4 pt-[12px] max-w-[70%] flex items-center"
-                  : isError
+                  : isError && !isRetryableError
                   ? "bg-red-50 border border-red-200 text-red-800 rounded-xl px-4 py-3"
                   : "w-full"
               }`}
@@ -960,7 +974,7 @@ export default function ChatMessage({ message, isUser }) {
                 </motion.div>
               )}
 
-              {isError && (
+              {isError && !isRetryableError && (
                 <motion.div
                   className="flex items-center gap-2 mb-3"
                   initial={{ opacity: 0, x: -10 }}
@@ -1050,6 +1064,31 @@ export default function ChatMessage({ message, isUser }) {
 
               {!isUser && (
                 <>
+                  {isRetryable && (
+                    <motion.button
+                      onClick={handleRetry}
+                      className="px-3 py-1.5 rounded-md bg-blue-50 hover:bg-blue-100 text-blue-600 hover:text-blue-700 transition-all duration-200 flex items-center gap-1.5 border border-blue-200"
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      title="Retry this message"
+                    >
+                      <svg 
+                        className="w-4 h-4" 
+                        fill="none" 
+                        stroke="currentColor" 
+                        viewBox="0 0 24 24"
+                      >
+                        <path 
+                          strokeLinecap="round" 
+                          strokeLinejoin="round" 
+                          strokeWidth={2} 
+                          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" 
+                        />
+                      </svg>
+                      <span className="text-sm font-medium">Retry</span>
+                    </motion.button>
+                  )}
+
                   <motion.button
                     onClick={async () => {
                       if (isPlaying || isLoading) {

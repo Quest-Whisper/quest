@@ -145,6 +145,115 @@ function Chat() {
     }
   };
 
+  const handleResendLastMessage = async () => {
+    // Find the last user message in the conversation
+    const lastUserMessage = messages.slice().reverse().find(msg => msg.role === "user");
+    
+    if (lastUserMessage) {
+      // Remove the error message (last AI message) but keep the user message
+      setMessages(prev => {
+        const lastMessage = prev[prev.length - 1];
+        if (lastMessage?.role === "model" && lastMessage?.content?.trim() === "I apologize, but I couldn't process your request. Please try again.") {
+          return prev.slice(0, -1);
+        }
+        return prev;
+      });
+      
+      setIsLoading(true);
+      setIsTyping(true);
+
+      try {
+        const response = await fetch("/api/chat", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            messages: messages.filter(msg => 
+              !(msg.role === "model" && msg.content?.trim() === "I apologize, but I couldn't process your request. Please try again.")
+            ).map(({ role, content, user }) => ({
+              role,
+              content,
+              user,
+            })),
+            context: {
+              userId: session?.user?.id,
+              userName: session?.user?.name,
+              userEmail: session?.user?.email,
+              userCurrency: "ZMW",
+            },
+            chatId: currentChatId,
+          }),
+        });
+
+        const contentType = response.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+          throw new Error(
+            "The server returned an unexpected response format. This typically happens when the server is overloaded."
+          );
+        }
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to send message");
+        }
+
+        // Parse the response to extract sources and displayImage if present
+        const parsedResponse = parseModelResponse(data.response);
+
+        const assistantMessage = {
+          role: "model",
+          content: parsedResponse.content,
+          sources: parsedResponse.sources,
+          displayImage: parsedResponse.displayImage,
+          timestamp: new Date().toISOString(),
+        };
+
+        setMessages((prev) => [...prev, assistantMessage]);
+
+        // Update chat ID if this was a new chat
+        if (data.isNewChat && data.chatId) {
+          setCurrentChatId(data.chatId);
+          window.history.replaceState({}, "", `/chat?id=${data.chatId}`);
+          // Reload chat history to include the new chat
+          loadChatHistory();
+        }
+      } catch (error) {
+        console.error("Error retrying message:", error);
+
+        // Create a friendly error message based on the error type
+        let errorMessage = "An error occurred while processing your request.";
+
+        if (error.message.includes("JSON")) {
+          errorMessage =
+            "The server is currently experiencing high load. Please try again in a moment or use a more specific question.";
+        } else if (
+          error.message.includes("504") ||
+          error.message.includes("timeout")
+        ) {
+          errorMessage =
+            "The request timed out. Please try again with a more specific question to reduce processing time.";
+        }
+
+        // Add an AI message that explains the error
+        const errorResponseMessage = {
+          role: "model",
+          content: errorMessage,
+          timestamp: new Date().toISOString(),
+          isError: true,
+        };
+
+        setMessages((prev) => [...prev, errorResponseMessage]);
+      } finally {
+        setIsLoading(false);
+        setIsTyping(false);
+      }
+    }
+  };
+
+
+
   const handleSendMessage = async (content) => {
     const userMessage = {
       role: "user",
@@ -435,6 +544,7 @@ function Chat() {
                     <ChatMessage
                       message={message}
                       isUser={message.role === "user"}
+                      onResendLastMessage={handleResendLastMessage}
                     />
                     {message.role === "user" && (
                       <div className="flex items-center gap-1 mt-1 ml-2">
