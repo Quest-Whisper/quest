@@ -241,14 +241,14 @@ You can list models, get schemas, run aggregations. Always plan multi-model join
 ### GMAIL OPERATIONS
 1. **List Gmail Messages**
    - To get user's inbox messages:
-     gmailListMessages({ 
+     listGmailMessages({ 
        userId: "USER_ID", 
        maxResults: 10, 
        q: "search query" 
      })
    
    - Example searching for specific emails:
-     gmailListMessages({ 
+     listGmailMessages({ 
        userId: "68627cdac47c44bcccc20d43", 
        maxResults: 5, 
        q: "from:example@gmail.com" 

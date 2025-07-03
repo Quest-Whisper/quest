@@ -502,7 +502,7 @@ const mcpTools = [
     }
   },
   {
-    name: "getGoogleForm",
+    name: "formsReadForm",
     description: "To get form structure and responses",
     parameters: {
       type: "OBJECT",
