@@ -134,7 +134,9 @@ function AuthErrorContent() {
             <p className="text-sm text-gray-500">
               Still having trouble?{" "}
               <a 
-                href="mailto:support@iwhispered.com" 
+               href="https://mail.google.com/mail/?view=cm&fs=1&to=support@iwhispered.com&su=QuestWhisper%20Support%20Request"
+               target="_blank"
+               rel="noopener noreferrer"
                 className="text-[#4f7269] hover:underline"
               >
                 Contact support
