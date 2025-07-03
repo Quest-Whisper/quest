@@ -845,7 +845,7 @@ export default function Home() {
                 Privacy
               </a>
               <a
-                href="#"
+                href="/terms-of-service"
                 className="text-sm text-gray-600 hover:text-[#4f7269] transition-colors"
               >
                 Terms
