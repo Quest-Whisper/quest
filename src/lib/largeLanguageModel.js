@@ -15,6 +15,11 @@ function requireParams(obj, ...fields) {
   });
 }
 
+/** Sleep utility for retry delays */
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // CONFIG & STATE
 ////////////////////////////////////////////////////////////////////////////////
@@ -1134,4 +1139,261 @@ Name: ${session.user.name}
   });
 
   return await handleUserQuery(chat, userMessage.content);
+}
+
+// New streaming function
+export async function* generateChatCompletionStreaming(
+  session,
+  userMessage,
+  pastMessages
+) {
+  await ensurePrefetched();
+
+  const now = getCurrentDateTime();
+
+  let userDetails = "No session data available.";
+  if (session && session.user) {
+    userDetails = `
+User ID: ${session.user.id}
+Name: ${session.user.name}
+`;
+  }
+
+  const pastMessagesWithoutDefault = pastMessages.slice(1);
+
+  // Transform into the Content[] shape
+  const history = pastMessagesWithoutDefault.map((msg) => ({
+    role: msg.role,
+    parts: [{ text: msg.content }],
+  }));
+
+  console.log("Streaming History: " + JSON.stringify(history));
+
+  const chat = ai.chats.create({
+    model: "gemini-2.5-flash",
+    config: {
+      systemInstruction: AXE_AI_SYSTEM_PROMPT.replace(
+        "%USERDETAILS%",
+        userDetails
+      ).replace("%DATEDETAILS%", now),
+
+      tools: [{ functionDeclarations: mcpTools }],
+      toolConfig: {
+        functionCallingConfig: { mode: FunctionCallingConfigMode.AUTO },
+      },
+    },
+    history,
+  });
+
+  try {
+    yield* handleUserQueryStreaming(chat, userMessage.content);
+  } catch (error) {
+    console.error("Error in streaming generation:", error);
+    yield { type: 'error', error: 'Failed to generate response' };
+  }
+}
+
+// Streaming version of handleUserQuery
+async function* handleUserQueryStreaming(chat, userMessageContent) {
+  console.log("USER MESSAGE (STREAMING):", userMessageContent);
+  let response;
+  let safetyCounter = 0;
+  let lastFunctionResult = null;
+  let lastFunctionName = null;
+
+  try {
+    // For streaming, we'll use Gemini's streaming API
+    // Build the full conversation history including the new user message
+    const conversationHistory = [
+      ...chat.history,
+      { role: 'user', parts: [{ text: userMessageContent }] }
+    ];
+    
+    const streamingResponse = await ai.models.generateContentStream({
+      model: "gemini-2.5-flash",
+      contents: conversationHistory,
+      config: {
+        systemInstruction: chat.config?.systemInstruction,
+        tools: chat.config?.tools,
+        toolConfig: chat.config?.toolConfig,
+      },
+    });
+    
+    // Handle function calls first if they exist in the initial response
+    let initialResponse = null;
+    let streamingChunks = [];
+    
+    for await (const chunk of streamingResponse) {
+      if (!initialResponse) {
+        initialResponse = chunk;
+        
+        // Check if there are function calls to handle first
+        if (chunk.functionCalls?.length > 0 || extractThoughtsAndFunctionCall(chunk).function_call) {
+          // We need to handle function calls before streaming text
+          response = chunk;
+          break;
+        }
+      }
+      
+      // If no function calls, start streaming the text response
+      const textContent = extractAssistantText(chunk);
+      if (textContent) {
+        streamingChunks.push(textContent);
+        yield { 
+          type: 'content', 
+          content: textContent 
+        };
+      }
+    }
+
+    // Handle function calls if they exist
+    if (response && (response.functionCalls?.length > 0 || extractThoughtsAndFunctionCall(response).function_call)) {
+      while (
+        (response.functionCalls?.length > 0 ||
+          extractThoughtsAndFunctionCall(response).function_call) &&
+        safetyCounter < 5
+      ) {
+        const { thoughts, function_call } = extractThoughtsAndFunctionCall(response);
+        const functionCallToExecute = function_call || (response.functionCalls && response.functionCalls[0]);
+
+        if (thoughts) {
+          console.log("AI THOUGHTS (STREAMING):", thoughts);
+        }
+
+        if (functionCallToExecute) {
+          console.log("AI FUNCTION CALL (STREAMING):", JSON.stringify(functionCallToExecute, null, 2));
+
+          const functionName = functionCallToExecute.name;
+          lastFunctionName = functionName;
+
+          // Parse arguments
+          let args;
+          if (functionCallToExecute.arguments) {
+            const rawArgs = functionCallToExecute.arguments;
+            args = typeof rawArgs === "string" ? JSON.parse(rawArgs) : rawArgs;
+          } else if (functionCallToExecute.args) {
+            const rawArgs = functionCallToExecute.args;
+            args = typeof rawArgs === "string" ? JSON.parse(rawArgs) : rawArgs;
+          } else if (functionCallToExecute.parameters) {
+            const rawArgs = functionCallToExecute.parameters;
+            args = typeof rawArgs === "string" ? JSON.parse(rawArgs) : rawArgs;
+          } else {
+            args = {};
+          }
+
+          const result = await executeMcpTool(functionName, args);
+          lastFunctionResult = result;
+          console.log("AI FUNCTION CALL RESULT (STREAMING):", JSON.stringify(result, null, 2));
+
+          try {
+            // Add the function call and response to the conversation history
+            const updatedHistory = [
+              ...conversationHistory,
+              { role: 'model', parts: [{ functionCall: functionCallToExecute }] },
+              { role: 'user', parts: [{ functionResponse: { name: functionName, response: { result } } }] }
+            ];
+            
+            // Get the response after function call
+            const functionResponse = await ai.models.generateContent({
+              model: "gemini-2.5-flash",
+              contents: updatedHistory,
+              config: {
+                systemInstruction: chat.config?.systemInstruction,
+                tools: chat.config?.tools,
+                toolConfig: chat.config?.toolConfig,
+              },
+            });
+            
+            // Stream the function response
+            const finalAnswer = extractAssistantText(functionResponse);
+            if (finalAnswer) {
+              yield* streamTextResponse(finalAnswer);
+              return;
+            }
+            
+            response = functionResponse;
+          } catch (error) {
+            console.log("Error in function response (streaming): " + error);
+            break;
+          }
+        } else {
+          break;
+        }
+
+        safetyCounter++;
+      }
+    }
+
+    // If we already streamed chunks without function calls, we're done
+    if (streamingChunks.length > 0) {
+      yield { type: 'done' };
+      return;
+    }
+
+    // Handle final response if no streaming occurred yet
+    const finalAnswer = extractAssistantText(response || initialResponse);
+    if (finalAnswer) {
+      yield* streamTextResponse(finalAnswer);
+    } else if (lastFunctionResult) {
+      const formattedResult = formatFunctionResultsDirectly(
+        lastFunctionName,
+        lastFunctionResult,
+        userMessageContent
+      );
+      yield* streamTextResponse(formattedResult);
+    } else {
+      yield* streamTextResponse("I apologize, but I couldn't process your request. Please try again.");
+    }
+
+  } catch (error) {
+    console.log("Error in streaming handler: " + error);
+    
+    // Fallback to non-streaming approach
+    try {
+      response = await sendWithRetry(chat, userMessageContent, {
+        retries: 3,
+        initialDelayMs: 1000,
+        backoffFactor: 2,
+      });
+      
+      const fallbackAnswer = extractAssistantText(response);
+      if (fallbackAnswer) {
+        yield* streamTextResponse(fallbackAnswer);
+      } else {
+        yield { type: 'error', error: 'Processing error occurred' };
+      }
+    } catch (fallbackError) {
+      yield { type: 'error', error: 'Failed to generate response' };
+    }
+  }
+}
+
+// Improved helper function to stream text response in chunks
+async function* streamTextResponse(text) {
+  // Split by words but preserve punctuation and spacing
+  const tokens = text.match(/\S+\s*/g) || [];
+  
+  for (let i = 0; i < tokens.length; i++) {
+    const token = tokens[i];
+    
+    yield { 
+      type: 'content', 
+      content: token 
+    };
+    
+    // Variable delay based on token type for more natural streaming
+    let delay = 40; // Base delay
+    
+    // Longer pause after punctuation
+    if (token.match(/[.!?]\s*$/)) {
+      delay = 120;
+    } else if (token.match(/[,;:]\s*$/)) {
+      delay = 80;
+    }
+    
+    // Add a small delay to simulate realistic streaming
+    await new Promise(resolve => setTimeout(resolve, delay));
+  }
+  
+  yield { type: 'done' };
 }

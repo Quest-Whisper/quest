@@ -8,7 +8,7 @@ import {
   MicrophoneIcon,
   ShareIcon,
 } from "@heroicons/react/24/outline";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import toast from "react-hot-toast";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -140,6 +140,7 @@ export default function ChatMessage({ message, isUser, onRetry, onResendLastMess
   const [showShareModal, setShowShareModal] = useState(false);
 
   const isError = !isUser && message.isError;
+  const isStreaming = !isUser && message.isStreaming;
   // Check if this is the specific error message that needs retry
   const isRetryableError = !isUser && message.content?.trim() === "I apologize, but I couldn't process your request. Please try again.";
   const isRetryable = isRetryableError || (!isUser && message.isRetryable && onRetry);
@@ -148,7 +149,7 @@ export default function ChatMessage({ message, isUser, onRetry, onResendLastMess
   const hasDisplayImage = !isUser && message.displayImage;
 
   // Handle retry for the specific error message
-  const handleRetry = () => {
+  const handleRetry = useCallback(() => {
     if (onRetry) {
       // Use the provided onRetry function if available
       onRetry();
@@ -156,7 +157,18 @@ export default function ChatMessage({ message, isUser, onRetry, onResendLastMess
       // For the specific error message, resend the last user message
       onResendLastMessage();
     }
-  };
+  }, [onRetry, isRetryableError, onResendLastMessage]);
+
+  // Memoize hover handlers to prevent unnecessary re-renders
+  const handleHoverStart = useCallback(() => {
+    if (!isStreaming) {
+      setIsHovered(true);
+    }
+  }, [isStreaming]);
+
+  const handleHoverEnd = useCallback(() => {
+    setIsHovered(false);
+  }, []);
 
   // AudioContext configured once
   const audioContext = useMemo(() => {
@@ -931,8 +943,9 @@ export default function ChatMessage({ message, isUser, onRetry, onResendLastMess
         exit={{ opacity: 0, y: -20 }}
         transition={{ duration: 0.4, ease: "easeOut" }}
         className="w-full group"
-        onHoverStart={() => setIsHovered(true)}
-        onHoverEnd={() => setIsHovered(false)}
+        onHoverStart={handleHoverStart}
+        onHoverEnd={handleHoverEnd}
+        layout={!isStreaming} // Disable layout animation during streaming
       >
         <div className="max-w-4xl mx-auto px-4 py-2">
           <div
@@ -947,17 +960,18 @@ export default function ChatMessage({ message, isUser, onRetry, onResendLastMess
                   : "w-full"
               }`}
               whileHover={
-                isUser
+                isUser && !isStreaming
                   ? {
                       transition: { duration: 0.2 },
                     }
-                  : !isError
+                  : !isError && !isStreaming
                   ? {
                       transition: { duration: 0.2 },
                     }
                   : {}
               }
               transition={{ duration: 0.2 }}
+              layout={!isStreaming} // Disable layout animation during streaming
             >
               {hasDisplayImage && (
                 <motion.div
@@ -991,7 +1005,8 @@ export default function ChatMessage({ message, isUser, onRetry, onResendLastMess
                 className="text-[16px] leading-relaxed text-slate-800"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                transition={{ delay: 0.1 }}
+                transition={{ delay: isStreaming ? 0 : 0.1 }} // Faster transition for streaming
+                layout={!isStreaming} // Disable layout animation during streaming
               >
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
@@ -999,9 +1014,63 @@ export default function ChatMessage({ message, isUser, onRetry, onResendLastMess
                 >
                   {removeSources(message.content)}
                 </ReactMarkdown>
+                
+                {/* Streaming indicator */}
+                {isStreaming && (
+                  <motion.div
+                    className="flex items-center gap-2 mt-2"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: [0, 1, 0] }}
+                    transition={{ 
+                      duration: 1.5, 
+                      repeat: Infinity,
+                      ease: "easeInOut"
+                    }}
+                  >
+                    <div className="flex space-x-1">
+                      <motion.div 
+                        className="w-2 h-2 bg-blue-400 rounded-full"
+                        animate={{
+                          scale: [1, 1.2, 1],
+                          opacity: [0.5, 1, 0.5]
+                        }}
+                        transition={{
+                          duration: 1,
+                          repeat: Infinity,
+                          delay: 0
+                        }}
+                      />
+                      <motion.div
+                        className="w-2 h-2 bg-blue-400 rounded-full"
+                        animate={{
+                          scale: [1, 1.2, 1],
+                          opacity: [0.5, 1, 0.5]
+                        }}
+                        transition={{
+                          duration: 1,
+                          repeat: Infinity,
+                          delay: 0.2
+                        }}
+                      />
+                      <motion.div
+                        className="w-2 h-2 bg-blue-400 rounded-full"
+                        animate={{
+                          scale: [1, 1.2, 1],
+                          opacity: [0.5, 1, 0.5]
+                        }}
+                        transition={{
+                          duration: 1,
+                          repeat: Infinity,
+                          delay: 0.4
+                        }}
+                      />
+                    </div>
+                    <span className="text-sm text-slate-500">generating...</span>
+                  </motion.div>
+                )}
               </motion.article>
 
-              {hasSources && (
+              {hasSources && !isStreaming && (
                 <motion.div
                   className="mt-6 pt-4 border-t border-slate-200"
                   initial={{ opacity: 0, y: 10 }}
@@ -1051,111 +1120,118 @@ export default function ChatMessage({ message, isUser, onRetry, onResendLastMess
               )}
             </motion.div>
 
-            {/* Action buttons positioned under the bubble */}
-            <motion.div className="flex items-center gap-1 mt-1">
-              <motion.button onClick={copyText} className="p-1.5 rounded-md">
-                <Image
-                  src="/icons/copy_icon.png"
-                  alt="Copy content"
-                  width={20}
-                  height={20}
-                />
-              </motion.button>
+            {/* Action buttons positioned under the bubble - Don't show for streaming messages */}
+            {!isStreaming && (
+              <motion.div 
+                className="flex items-center gap-1 mt-1"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.2 }}
+              >
+                <motion.button onClick={copyText} className="p-1.5 rounded-md">
+                  <Image
+                    src="/icons/copy_icon.png"
+                    alt="Copy content"
+                    width={20}
+                    height={20}
+                  />
+                </motion.button>
 
-              {!isUser && (
-                <>
-                  {isRetryable && (
+                {!isUser && (
+                  <>
+                    {isRetryable && (
+                      <motion.button
+                        onClick={handleRetry}
+                        className="px-3 py-1.5 rounded-md bg-blue-50 hover:bg-blue-100 text-blue-600 hover:text-blue-700 transition-all duration-200 flex items-center gap-1.5 border border-blue-200"
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        title="Retry this message"
+                      >
+                        <svg 
+                          className="w-4 h-4" 
+                          fill="none" 
+                          stroke="currentColor" 
+                          viewBox="0 0 24 24"
+                        >
+                          <path 
+                            strokeLinecap="round" 
+                            strokeLinejoin="round" 
+                            strokeWidth={2} 
+                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" 
+                          />
+                        </svg>
+                        <span className="text-sm font-medium">Retry</span>
+                      </motion.button>
+                    )}
+
                     <motion.button
-                      onClick={handleRetry}
-                      className="px-3 py-1.5 rounded-md bg-blue-50 hover:bg-blue-100 text-blue-600 hover:text-blue-700 transition-all duration-200 flex items-center gap-1.5 border border-blue-200"
+                      onClick={async () => {
+                        if (isPlaying || isLoading) {
+                          // Stop audio if currently playing or loading
+                          stopAudio();
+                        } else {
+                          // First test if audio is working
+                          const audioWorking = await testAudio();
+
+                          if (audioWorking) {
+                            // Wait a moment after the test beep
+                            setTimeout(() => {
+                              fetchAndPlayStreaming(message.content);
+                            }, 500);
+                          } else {
+                            toast.error(
+                              "Audio not available - check browser permissions"
+                            );
+                          }
+                        }
+                      }}
+                      className="p-1.5 rounded-md hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-all duration-200"
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
-                      title="Retry this message"
                     >
-                      <svg 
-                        className="w-4 h-4" 
-                        fill="none" 
-                        stroke="currentColor" 
-                        viewBox="0 0 24 24"
-                      >
-                        <path 
-                          strokeLinecap="round" 
-                          strokeLinejoin="round" 
-                          strokeWidth={2} 
-                          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" 
+                      {isLoading ? (
+                        // Loading spinner
+                        <div className="w-6 h-6 flex items-center justify-center">
+                          <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin"></div>
+                        </div>
+                      ) : isPlaying ? (
+                        // Stop button
+                        <div className="w-6 h-6 bg-[#66757F] hover:bg-[#292F33] rounded-md flex items-center justify-center transition-colors duration-200">
+                          <div className="w-3 h-3 bg-white rounded-sm"></div>
+                        </div>
+                      ) : (
+                        // Play button
+                        <Image
+                          src="/icons/volume_icon.png"
+                          alt="Play audio"
+                          width={24}
+                          height={24}
                         />
-                      </svg>
-                      <span className="text-sm font-medium">Retry</span>
+                      )}
                     </motion.button>
-                  )}
 
-                  <motion.button
-                    onClick={async () => {
-                      if (isPlaying || isLoading) {
-                        // Stop audio if currently playing or loading
-                        stopAudio();
-                      } else {
-                        // First test if audio is working
-                        const audioWorking = await testAudio();
+                    <motion.button
+                      onClick={() => setShowShareModal(true)}
+                      className="p-1.5 rounded-md hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-all duration-200"
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      title="Share response"
+                    >
+                      <ShareIcon className="w-5 h-5" />
+                    </motion.button>
+                  </>
+                )}
 
-                        if (audioWorking) {
-                          // Wait a moment after the test beep
-                          setTimeout(() => {
-                            fetchAndPlayStreaming(message.content);
-                          }, 500);
-                        } else {
-                          toast.error(
-                            "Audio not available - check browser permissions"
-                          );
-                        }
-                      }
-                    }}
-                    className="p-1.5 rounded-md hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-all duration-200"
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                  >
-                    {isLoading ? (
-                      // Loading spinner
-                      <div className="w-6 h-6 flex items-center justify-center">
-                        <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin"></div>
-                      </div>
-                    ) : isPlaying ? (
-                      // Stop button
-                      <div className="w-6 h-6 bg-[#66757F] hover:bg-[#292F33] rounded-md flex items-center justify-center transition-colors duration-200">
-                        <div className="w-3 h-3 bg-white rounded-sm"></div>
-                      </div>
-                    ) : (
-                      // Play button
-                      <Image
-                        src="/icons/volume_icon.png"
-                        alt="Play audio"
-                        width={24}
-                        height={24}
-                      />
-                    )}
-                  </motion.button>
-
-                  <motion.button
-                    onClick={() => setShowShareModal(true)}
-                    className="p-1.5 rounded-md hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-all duration-200"
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    title="Share response"
-                  >
-                    <ShareIcon className="w-5 h-5" />
-                  </motion.button>
-                </>
-              )}
-
-              {wavUrl && (
-                <motion.audio
-                  src={wavUrl}
-                  className="ml-2"
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                />
-              )}
-            </motion.div>
+                {wavUrl && (
+                  <motion.audio
+                    src={wavUrl}
+                    className="ml-2"
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                  />
+                )}
+              </motion.div>
+            )}
           </div>
         </div>
       </motion.div>

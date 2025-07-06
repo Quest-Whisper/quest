@@ -160,99 +160,85 @@ function Chat() {
       setIsTyping(true);
 
       try {
-        const response = await fetch("/api/chat", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            messages: messages
-              .filter(
-                (msg) =>
-                  !(
-                    msg.role === "model" &&
-                    msg.content?.trim() ===
-                      "I apologize, but I couldn't process your request. Please try again."
-                  )
-              )
-              .map(({ role, content, user }) => ({
-                role,
-                content,
-                user,
-              })),
-            context: {
-              userId: session?.user?.id,
-              userName: session?.user?.name,
-              userEmail: session?.user?.email,
-              userCurrency: "ZMW",
-            },
-            chatId: currentChatId,
-          }),
-        });
-
-        const contentType = response.headers.get("content-type");
-        if (!contentType || !contentType.includes("application/json")) {
-          throw new Error(
-            "The server returned an unexpected response format. This typically happens when the server is overloaded."
-          );
-        }
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.error || "Failed to send message");
-        }
-
-        // Parse the response to extract sources and displayImage if present
-        const parsedResponse = parseModelResponse(data.response);
-
-        const assistantMessage = {
-          role: "model",
-          content: parsedResponse.content,
-          sources: parsedResponse.sources,
-          displayImage: parsedResponse.displayImage,
-          timestamp: new Date().toISOString(),
-        };
-
-        setMessages((prev) => [...prev, assistantMessage]);
-
-        // Update chat ID if this was a new chat
-        if (data.isNewChat && data.chatId) {
-          setCurrentChatId(data.chatId);
-          window.history.replaceState({}, "", `/chat?id=${data.chatId}`);
-          // Reload chat history to include the new chat
-          loadChatHistory();
+        // Try streaming first for retry as well
+        const success = await handleStreamingMessage(lastUserMessage.content, lastUserMessage);
+        if (!success) {
+          // Fallback to non-streaming for retry
+          await handleNonStreamingMessageForRetry(lastUserMessage);
         }
       } catch (error) {
         console.error("Error retrying message:", error);
-
-        // Create a friendly error message based on the error type
-        let errorMessage = "An error occurred while processing your request.";
-
-        if (error.message.includes("JSON")) {
-          errorMessage =
-            "The server is currently experiencing high load. Please try again in a moment or use a more specific question.";
-        } else if (
-          error.message.includes("504") ||
-          error.message.includes("timeout")
-        ) {
-          errorMessage =
-            "The request timed out. Please try again with a more specific question to reduce processing time.";
-        }
-
-        // Add an AI message that explains the error
-        const errorResponseMessage = {
-          role: "model",
-          content: errorMessage,
-          timestamp: new Date().toISOString(),
-          isError: true,
-        };
-
-        setMessages((prev) => [...prev, errorResponseMessage]);
+        await handleMessageError(error, lastUserMessage);
       } finally {
         setIsLoading(false);
         setIsTyping(false);
       }
+    }
+  };
+
+  const handleNonStreamingMessageForRetry = async (lastUserMessage) => {
+    const response = await fetch("/api/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        messages: messages
+          .filter(
+            (msg) =>
+              !(
+                msg.role === "model" &&
+                msg.content?.trim() ===
+                  "I apologize, but I couldn't process your request. Please try again."
+              )
+          )
+          .map(({ role, content, user }) => ({
+            role,
+            content,
+            user,
+          })),
+        context: {
+          userId: session?.user?.id,
+          userName: session?.user?.name,
+          userEmail: session?.user?.email,
+          userCurrency: "ZMW",
+        },
+        chatId: currentChatId,
+      }),
+    });
+
+    const contentType = response.headers.get("content-type");
+    if (!contentType || !contentType.includes("application/json")) {
+      throw new Error(
+        "The server returned an unexpected response format. This typically happens when the server is overloaded."
+      );
+    }
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || "Failed to send message");
+    }
+
+    // Parse the response to extract sources and displayImage if present
+    const parsedResponse = parseModelResponse(data.response);
+
+    const assistantMessage = {
+      role: "model",
+      content: parsedResponse.content,
+      sources: parsedResponse.sources,
+      displayImage: parsedResponse.displayImage,
+      timestamp: new Date().toISOString(),
+    };
+
+    setMessages((prev) => [...prev, assistantMessage]);
+
+    // Update chat ID if this was a new chat
+    if (data.isNewChat && data.chatId) {
+      setCurrentChatId(data.chatId);
+      window.history.replaceState({}, "", `/chat?id=${data.chatId}`);
+      // Reload chat history to include the new chat
+      loadChatHistory();
     }
   };
 
@@ -273,7 +259,24 @@ function Chat() {
     setIsTyping(true);
 
     try {
-      const response = await fetch("/api/chat", {
+      // Try streaming first
+      const success = await handleStreamingMessage(content, userMessage);
+      if (!success) {
+        // Fallback to non-streaming
+        await handleNonStreamingMessage(content, userMessage);
+      }
+    } catch (error) {
+      console.error("Error sending message:", error);
+      await handleMessageError(error, userMessage);
+    } finally {
+      setIsLoading(false);
+      setIsTyping(false);
+    }
+  };
+
+  const handleStreamingMessage = async (content, userMessage) => {
+    try {
+      const response = await fetch("/api/chat?stream=true", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -296,80 +299,196 @@ function Chat() {
         }),
       });
 
-      // Handle non-JSON responses (like HTML error pages)
-      const contentType = response.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-        throw new Error(
-          "The server returned an unexpected response format. This typically happens when the server is overloaded."
-        );
-      }
-
-      const data = await response.json();
-
       if (!response.ok) {
-        throw new Error(data.error || "Failed to send message");
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      // Parse the response to extract sources and displayImage if present
-      const parsedResponse = parseModelResponse(data.response);
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error("No reader available");
+      }
 
-      const assistantMessage = {
-        role: "model",
-        content: parsedResponse.content,
-        sources: parsedResponse.sources,
-        displayImage: parsedResponse.displayImage,
-        timestamp: new Date().toISOString(),
-      };
+      const decoder = new TextDecoder();
+      let streamedContent = "";
 
-      setMessages((prev) => [
-        ...prev.map((msg) =>
+      // Mark user message as sent
+      setMessages((prev) => 
+        prev.map((msg) =>
           msg === userMessage ? { ...msg, status: "sent" } : msg
-        ),
-        assistantMessage,
-      ]);
+        )
+      );
 
-      // Update chat ID if this was a new chat
-      if (data.isNewChat && data.chatId) {
-        setCurrentChatId(data.chatId);
-        window.history.replaceState({}, "", `/chat?id=${data.chatId}`);
-        // Reload chat history to include the new chat
-        loadChatHistory();
-      }
-    } catch (error) {
-      console.error("Error sending message:", error);
-
-      // Create a friendly error message based on the error type
-      let errorMessage = "An error occurred while processing your request.";
-
-      if (error.message.includes("JSON")) {
-        errorMessage =
-          "The server is currently experiencing high load. Please try again in a moment or use a more specific question.";
-      } else if (
-        error.message.includes("504") ||
-        error.message.includes("timeout")
-      ) {
-        errorMessage =
-          "The request timed out. Please try again with a more specific question to reduce processing time.";
-      }
-
-      // Add an AI message that explains the error
-      const errorResponseMessage = {
+      // Add initial assistant message with unique ID for tracking
+      const assistantMessageId = `streaming-${Date.now()}`;
+      const initialAssistantMessage = {
+        id: assistantMessageId,
         role: "model",
-        content: errorMessage,
+        content: "",
         timestamp: new Date().toISOString(),
-        isError: true,
+        isStreaming: true,
       };
 
-      setMessages((prev) => [
-        ...prev.map((msg) =>
-          msg === userMessage ? { ...msg, status: "error" } : msg
-        ),
-        errorResponseMessage,
-      ]);
-    } finally {
-      setIsLoading(false);
-      setIsTyping(false);
+      setMessages((prev) => [...prev, initialAssistantMessage]);
+
+      while (true) {
+        const { done, value } = await reader.read();
+        
+        if (done) {
+          break;
+        }
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n').filter(line => line.trim());
+
+        for (const line of lines) {
+          try {
+            const data = JSON.parse(line);
+            
+            if (data.type === 'content') {
+              streamedContent += data.content;
+              
+              // Update the streaming message using the ID
+              setMessages((prev) => 
+                prev.map((msg) => 
+                  msg.id === assistantMessageId
+                    ? { ...msg, content: streamedContent }
+                    : msg
+                )
+              );
+            } else if (data.type === 'done') {
+              // Finalize the message
+              setMessages((prev) => 
+                prev.map((msg) => 
+                  msg.id === assistantMessageId
+                    ? { 
+                        ...msg, 
+                        content: data.fullContent || streamedContent,
+                        isStreaming: false 
+                      }
+                    : msg
+                )
+              );
+
+              // Update chat ID if this was a new chat
+              if (data.isNewChat && data.chatId) {
+                setCurrentChatId(data.chatId);
+                window.history.replaceState({}, "", `/chat?id=${data.chatId}`);
+                loadChatHistory();
+              }
+              
+              setIsLoading(false);
+              setIsTyping(false);
+              return true; // Success
+            } else if (data.type === 'error') {
+              throw new Error(data.error || 'Streaming error');
+            }
+          } catch (parseError) {
+            console.warn("Failed to parse streaming chunk:", parseError);
+            // Continue processing other chunks
+          }
+        }
+      }
+
+      return true; // Success
+    } catch (error) {
+      console.error("Streaming error:", error);
+      return false; // Failed, should fallback
     }
+  };
+
+  const handleNonStreamingMessage = async (content, userMessage) => {
+    const response = await fetch("/api/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        messages: [...messages, userMessage].map(
+          ({ role, content, user }) => ({
+            role,
+            content,
+            user,
+          })
+        ),
+        context: {
+          userId: session?.user?.id,
+          userName: session?.user?.name,
+          userEmail: session?.user?.email,
+          userCurrency: "ZMW",
+        },
+        chatId: currentChatId,
+      }),
+    });
+
+    // Handle non-JSON responses (like HTML error pages)
+    const contentType = response.headers.get("content-type");
+    if (!contentType || !contentType.includes("application/json")) {
+      throw new Error(
+        "The server returned an unexpected response format. This typically happens when the server is overloaded."
+      );
+    }
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || "Failed to send message");
+    }
+
+    // Parse the response to extract sources and displayImage if present
+    const parsedResponse = parseModelResponse(data.response);
+
+    const assistantMessage = {
+      role: "model",
+      content: parsedResponse.content,
+      sources: parsedResponse.sources,
+      displayImage: parsedResponse.displayImage,
+      timestamp: new Date().toISOString(),
+    };
+
+    setMessages((prev) => [
+      ...prev.map((msg) =>
+        msg === userMessage ? { ...msg, status: "sent" } : msg
+      ),
+      assistantMessage,
+    ]);
+
+    // Update chat ID if this was a new chat
+    if (data.isNewChat && data.chatId) {
+      setCurrentChatId(data.chatId);
+      window.history.replaceState({}, "", `/chat?id=${data.chatId}`);
+      loadChatHistory();
+    }
+  };
+
+  const handleMessageError = async (error, userMessage) => {
+    // Create a friendly error message based on the error type
+    let errorMessage = "An error occurred while processing your request.";
+
+    if (error.message.includes("JSON")) {
+      errorMessage =
+        "The server is currently experiencing high load. Please try again in a moment or use a more specific question.";
+    } else if (
+      error.message.includes("504") ||
+      error.message.includes("timeout")
+    ) {
+      errorMessage =
+        "The request timed out. Please try again with a more specific question to reduce processing time.";
+    }
+
+    // Add an AI message that explains the error
+    const errorResponseMessage = {
+      role: "model",
+      content: errorMessage,
+      timestamp: new Date().toISOString(),
+      isError: true,
+    };
+
+    setMessages((prev) => [
+      ...prev.map((msg) =>
+        msg === userMessage ? { ...msg, status: "error" } : msg
+      ),
+      errorResponseMessage,
+    ]);
   };
 
   const handleVoiceMode = async () => {
@@ -528,49 +647,55 @@ function Chat() {
               <div className="flex-1 overflow-y-auto bg-white chat-scroll relative">
                 <div className="max-w-4xl mx-auto px-4 pt-8 pb-4">
                   <AnimatePresence mode="popLayout">
-                    {messages.map((message, index) => (
-                      <motion.div
-                        key={index}
-                        layout
-                        initial={{ opacity: 0, y: 30, scale: 0.95 }}
-                        animate={{
-                          opacity: 1,
-                          y: 0,
-                          scale: 1,
-                          transition: {
-                            type: "spring",
-                            stiffness: 500,
-                            damping: 30,
-                            duration: 0.4,
-                          },
-                        }}
-                        exit={{
-                          opacity: 0,
-                          y: -20,
-                          scale: 0.95,
-                          transition: { duration: 0.2 },
-                        }}
-                        className="mb-8"
-                      >
-                        <ChatMessage
-                          message={message}
-                          isUser={message.role === "user"}
-                          onResendLastMessage={handleResendLastMessage}
-                        />
-                        {message.role === "user" && (
-                          <div className="flex items-center gap-1 mt-1 ml-2">
-                            {message.status === "error" && (
-                              <span className="text-xs text-red-500">
-                                Failed to send
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </motion.div>
-                    ))}
+                    {messages.map((message, index) => {
+                      const isLastMessage = index === messages.length - 1;
+                      const isStreamingMessage = message.isStreaming;
+                      
+                      return (
+                        <motion.div
+                          key={message.id || index}
+                          layout={!isStreamingMessage} // Disable layout animation for streaming messages
+                          initial={{ opacity: 0, y: 30, scale: 0.95 }}
+                          animate={{
+                            opacity: 1,
+                            y: 0,
+                            scale: 1,
+                            transition: {
+                              type: isStreamingMessage ? "tween" : "spring",
+                              stiffness: isStreamingMessage ? undefined : 500,
+                              damping: isStreamingMessage ? undefined : 30,
+                              duration: isStreamingMessage ? 0.2 : 0.4,
+                            },
+                          }}
+                          exit={{
+                            opacity: 0,
+                            y: -20,
+                            scale: 0.95,
+                            transition: { duration: 0.2 },
+                          }}
+                          className="mb-8"
+                        >
+                          <ChatMessage
+                            message={message}
+                            isUser={message.role === "user"}
+                            onResendLastMessage={handleResendLastMessage}
+                          />
+                          {message.role === "user" && (
+                            <div className="flex items-center gap-1 mt-1 ml-2">
+                              {message.status === "error" && (
+                                <span className="text-xs text-red-500">
+                                  Failed to send
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </motion.div>
+                      );
+                    })}
                   </AnimatePresence>
 
-                  {isTyping && (
+                  {/* Only show typing indicator if not streaming and isTyping is true */}
+                  {isTyping && !messages.some(msg => msg.isStreaming) && (
                     <motion.div
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}

@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
-import { generateChatCompletion, generateConversationTitle } from "@/lib/largeLanguageModel";
+import { generateChatCompletion, generateConversationTitle, generateChatCompletionStreaming } from "@/lib/largeLanguageModel";
 import connectToDatabase from "@/lib/mongodb";
 import Chat from "@/models/Chat";
 
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
+
+// Add streaming support
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 // Helper function to save chat messages to a specific chat instance
 async function saveChat(userMessage, aiMessage, context, chatId = null) {
@@ -155,6 +159,8 @@ export async function DELETE(request) {
 export async function POST(request) {
   try {
     const session = await getServerSession(authOptions);
+    const url = new URL(request.url);
+    const isStreaming = url.searchParams.get("stream") === "true";
 
     const { messages, context, chatId } = await request.json();
 
@@ -193,7 +199,12 @@ export async function POST(request) {
       pastMessages = messages.slice(0, -1);
     }
 
-    // Generate AI response
+    // Handle streaming response
+    if (isStreaming) {
+      return await handleStreamingResponse(session, latestMessage, pastMessages, context, chatId);
+    }
+
+    // Generate AI response (non-streaming)
     const response = await generateChatCompletion(session, latestMessage, pastMessages);
 
     // Prepare messages for saving
@@ -231,4 +242,138 @@ export async function POST(request) {
       { status: 200 }
     );
   }
+}
+
+async function handleStreamingResponse(session, latestMessage, pastMessages, context, chatId) {
+  let controllerRef;
+  let fullResponse = "";
+  let streamFinished = false;
+  
+  const stream = new ReadableStream({
+    start(controller) {
+      controllerRef = controller;
+    },
+    cancel(reason) {
+      console.log("[Chat Stream] Stream cancelled:", reason);
+      streamFinished = true;
+    },
+  });
+
+  // Start the streaming generation in the background
+  (async () => {
+    try {
+      const streamingGenerator = generateChatCompletionStreaming(session, latestMessage, pastMessages);
+      
+      for await (const chunk of streamingGenerator) {
+        if (streamFinished) break;
+        
+        if (chunk.type === 'content') {
+          fullResponse += chunk.content;
+          
+          // Send the chunk to the client
+          const chunkData = JSON.stringify({
+            type: 'content',
+            content: chunk.content,
+            fullContent: fullResponse
+          }) + '\n';
+          
+          if (controllerRef && !streamFinished) {
+            controllerRef.enqueue(new TextEncoder().encode(chunkData));
+          }
+        } else if (chunk.type === 'done') {
+          // Save the completed conversation
+          const userMessage = {
+            role: "user",
+            content: latestMessage.content,
+            timestamp: new Date(),
+            user: {
+              name: context.userName || session?.user?.name,
+              email: context.userEmail || session?.user?.email,
+            },
+          };
+
+          const aiMessage = {
+            role: "model",
+            content: fullResponse,
+            timestamp: new Date(),
+          };
+
+          try {
+            const saveResult = await saveChat(userMessage, aiMessage, context, chatId);
+            
+            // Send completion message
+            const completionData = JSON.stringify({
+              type: 'done',
+              fullContent: fullResponse,
+              chatId: saveResult.chatId,
+              isNewChat: saveResult.isNew
+            }) + '\n';
+            
+            if (controllerRef && !streamFinished) {
+              controllerRef.enqueue(new TextEncoder().encode(completionData));
+            }
+          } catch (saveError) {
+            console.error("Error saving streamed chat:", saveError);
+            // Send error but don't fail the stream
+            const errorData = JSON.stringify({
+              type: 'error',
+              error: 'Failed to save chat',
+              fullContent: fullResponse
+            }) + '\n';
+            
+            if (controllerRef && !streamFinished) {
+              controllerRef.enqueue(new TextEncoder().encode(errorData));
+            }
+          }
+          
+          if (controllerRef && !streamFinished) {
+            streamFinished = true;
+            controllerRef.close();
+          }
+          break;
+        } else if (chunk.type === 'error') {
+          // Send error message
+          const errorData = JSON.stringify({
+            type: 'error',
+            error: chunk.error,
+            fullContent: fullResponse
+          }) + '\n';
+          
+          if (controllerRef && !streamFinished) {
+            controllerRef.enqueue(new TextEncoder().encode(errorData));
+            streamFinished = true;
+            controllerRef.close();
+          }
+          break;
+        }
+      }
+    } catch (error) {
+      console.error("Error in streaming generation:", error);
+      
+      const errorData = JSON.stringify({
+        type: 'error',
+        error: 'Failed to generate response',
+        fullContent: fullResponse
+      }) + '\n';
+      
+      if (controllerRef && !streamFinished) {
+        controllerRef.enqueue(new TextEncoder().encode(errorData));
+        streamFinished = true;
+        controllerRef.close();
+      }
+    }
+  })();
+
+  return new NextResponse(stream, {
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+      "Connection": "keep-alive",
+      "Transfer-Encoding": "chunked",
+      "X-Accel-Buffering": "no",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
+    },
+  });
 }
