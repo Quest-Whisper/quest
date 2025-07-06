@@ -15,7 +15,7 @@ export const authOptions = {
             "openid",
             "email",
             "profile",
-            "https://www.googleapis.com/auth/drive",
+            "https://www.googleapis.com/auth/drive.file",
             "https://www.googleapis.com/auth/gmail.readonly", // for reading emails
             "https://www.googleapis.com/auth/gmail.send", // for sending emails
             "https://www.googleapis.com/auth/calendar.readonly", // for reading calender events
