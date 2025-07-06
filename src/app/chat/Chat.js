@@ -8,11 +8,13 @@ import ChatSidebar from "@/components/chat/ChatSidebar";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Bars3Icon } from "@heroicons/react/24/outline";
 import Image from "next/image";
+import LiveVoiceChat from "@/components/chat/LiveChat";
 
 function Chat() {
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
+  const [isVoiceMode, setIsVoiceMode] = useState(false);
   const [currentChatId, setCurrentChatId] = useState(null);
   const [chatHistory, setChatHistory] = useState([]);
   // Initialize sidebar state based on screen size
@@ -95,18 +97,6 @@ function Chat() {
     }
   };
 
-  const handleToggleSidebar = () => {
-    const isMobile = window.innerWidth < 768;
-
-    if (showSidebar === false) {
-      setShowSidebar(isMobile ? true : "minimized"); // Show full on mobile, minimized on desktop
-    } else if (showSidebar === "minimized") {
-      setShowSidebar(true); // Expand to full
-    } else {
-      setShowSidebar(isMobile ? false : "minimized"); // Hide on mobile, minimize on desktop
-    }
-  };
-
   const parseModelResponse = (rawContent) => {
     try {
       // Check if the response contains sources or displayImage
@@ -147,18 +137,25 @@ function Chat() {
 
   const handleResendLastMessage = async () => {
     // Find the last user message in the conversation
-    const lastUserMessage = messages.slice().reverse().find(msg => msg.role === "user");
-    
+    const lastUserMessage = messages
+      .slice()
+      .reverse()
+      .find((msg) => msg.role === "user");
+
     if (lastUserMessage) {
       // Remove the error message (last AI message) but keep the user message
-      setMessages(prev => {
+      setMessages((prev) => {
         const lastMessage = prev[prev.length - 1];
-        if (lastMessage?.role === "model" && lastMessage?.content?.trim() === "I apologize, but I couldn't process your request. Please try again.") {
+        if (
+          lastMessage?.role === "model" &&
+          lastMessage?.content?.trim() ===
+            "I apologize, but I couldn't process your request. Please try again."
+        ) {
           return prev.slice(0, -1);
         }
         return prev;
       });
-      
+
       setIsLoading(true);
       setIsTyping(true);
 
@@ -169,13 +166,20 @@ function Chat() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            messages: messages.filter(msg => 
-              !(msg.role === "model" && msg.content?.trim() === "I apologize, but I couldn't process your request. Please try again.")
-            ).map(({ role, content, user }) => ({
-              role,
-              content,
-              user,
-            })),
+            messages: messages
+              .filter(
+                (msg) =>
+                  !(
+                    msg.role === "model" &&
+                    msg.content?.trim() ===
+                      "I apologize, but I couldn't process your request. Please try again."
+                  )
+              )
+              .map(({ role, content, user }) => ({
+                role,
+                content,
+                user,
+              })),
             context: {
               userId: session?.user?.id,
               userName: session?.user?.name,
@@ -251,8 +255,6 @@ function Chat() {
       }
     }
   };
-
-
 
   const handleSendMessage = async (content) => {
     const userMessage = {
@@ -370,6 +372,10 @@ function Chat() {
     }
   };
 
+  const handleVoiceMode = async () => {
+    setIsVoiceMode(true);
+  };
+
   if (status === "loading" || showSidebar === null) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-50">
@@ -382,228 +388,239 @@ function Chat() {
   }
 
   return (
-    <div
-      className={`
+    <div>
+      {isVoiceMode ? (
+        <LiveVoiceChat onClose={() => setIsVoiceMode(false)} />
+      ) : (
+        <div
+          className={`
       flex bg-gray-50 overflow-hidden
       ${isMobile ? "h-[100dvh]" : "h-screen"}
     `}
-    >
-      {/* Sidebar Component */}
-      <ChatSidebar
-        showSidebar={showSidebar}
-        setShowSidebar={setShowSidebar}
-        chatHistory={chatHistory}
-        currentChatId={currentChatId}
-        onNewChat={startNewChat}
-        onLoadChat={loadChat}
-        onDeleteChat={handleDeleteChat}
-      />
+        >
+          {/* Sidebar Component */}
+          <ChatSidebar
+            showSidebar={showSidebar}
+            setShowSidebar={setShowSidebar}
+            chatHistory={chatHistory}
+            currentChatId={currentChatId}
+            onNewChat={startNewChat}
+            onLoadChat={loadChat}
+            onDeleteChat={handleDeleteChat}
+          />
 
-      {/* Main chat area */}
-      <div className="flex-1 flex flex-col relative bg-white h-full">
-        {/* Top bar */}
-        <div className="border-b border-gray-200 bg-white/80 backdrop-blur-sm p-4 flex items-center justify-between sticky top-0 z-30 shrink-0">
-          <div className="flex items-center gap-3">
-            {(showSidebar === false || (isMobile && showSidebar !== true)) && (
-              <button
-                onClick={() => setShowSidebar(true)}
-                className="p-2 rounded-xl hover:bg-gray-100 transition-colors group"
-                title="Show sidebar"
-              >
-                <Image
-                  src="/icons/menu_icon.png"
-                  alt="Expand sidebar"
-                  width={20}
-                  height={20}
-                  className="w-5 h-5 object-contain"
-                />
-              </button>
-            )}
-            {showSidebar === "minimized" && !isMobile && (
-              <button
-                onClick={() => setShowSidebar(true)}
-                className="p-2 rounded-xl hover:bg-gray-100 transition-colors group"
-                title="Expand sidebar"
-              >
-                <Image
-                  src="/icons/expand_icon.png"
-                  alt="Expand sidebar"
-                  width={20}
-                  height={20}
-                  className="w-5 h-5 object-contain opacity-60 group-hover:opacity-80"
-                />
-              </button>
-            )}
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-              <h2 className="text-lg font-semibold text-gray-800">
-                {currentChatId
-                  ? chatHistory.find((c) => c.id === currentChatId)?.title ||
-                    "Chat"
-                  : "New Chat"}
-              </h2>
-            </div>
-          </div>
-        </div>
-
-        {messages.length === 0 ? (
-          <div className="flex items-center justify-center flex-1 p-4">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, ease: "easeOut" }}
-              className="text-center space-y-6 max-w-2xl mx-auto"
-            >
-              <motion.div
-                className="relative"
-                animate={{
-                  scale: [1, 1.02, 1],
-                }}
-                transition={{
-                  duration: 4,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                }}
-              >
-                <h1 className="text-[26px] md:text-[36px] lg:text-[52px] font-bold mb-4 relative">
-                  <span
-                    className="bg-gradient-to-r from-slate-900 via-blue-700 to-slate-600 bg-clip-text text-transparent"
-                    style={{
-                      backgroundSize: "200% 100%",
-                      animation: "shimmer 3s ease-in-out infinite",
-                    }}
+          {/* Main chat area */}
+          <div className="flex-1 flex flex-col relative bg-white h-full">
+            {/* Top bar */}
+            <div className="border-b border-gray-200 bg-white/80 backdrop-blur-sm p-4 flex items-center justify-between sticky top-0 z-30 shrink-0">
+              <div className="flex items-center gap-3">
+                {(showSidebar === false ||
+                  (isMobile && showSidebar !== true)) && (
+                  <button
+                    onClick={() => setShowSidebar(true)}
+                    className="p-2 rounded-xl hover:bg-gray-100 transition-colors group"
+                    title="Show sidebar"
                   >
-                    What's on your mind?
-                  </span>
-                </h1>
-              </motion.div>
-
-              <motion.p
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.5, duration: 0.6 }}
-                className="text-[16px] text-slate-600 font-medium max-w-md mx-auto leading-relaxed"
-              >
-                Ask me anything, and I'll help you explore ideas with thoughtful
-                responses.
-              </motion.p>
-
-              <motion.div
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.8, duration: 0.5 }}
-                className="flex justify-center space-x-1"
-              >
-                {[...Array(3)].map((_, i) => (
-                  <motion.div
-                    key={i}
-                    className="w-2 h-2 bg-blue-400 rounded-full"
-                    animate={{
-                      opacity: [0.3, 1, 0.3],
-                      scale: [0.8, 1.2, 0.8],
-                    }}
-                    transition={{
-                      duration: 2,
-                      repeat: Infinity,
-                      delay: i * 0.3,
-                      ease: "easeInOut",
-                    }}
-                  />
-                ))}
-              </motion.div>
-            </motion.div>
-          </div>
-        ) : (
-          <div className="flex-1 overflow-y-auto bg-white chat-scroll relative">
-            <div className="max-w-4xl mx-auto px-4 pt-8 pb-4">
-              <AnimatePresence mode="popLayout">
-                {messages.map((message, index) => (
-                  <motion.div
-                    key={index}
-                    layout
-                    initial={{ opacity: 0, y: 30, scale: 0.95 }}
-                    animate={{
-                      opacity: 1,
-                      y: 0,
-                      scale: 1,
-                      transition: {
-                        type: "spring",
-                        stiffness: 500,
-                        damping: 30,
-                        duration: 0.4,
-                      },
-                    }}
-                    exit={{
-                      opacity: 0,
-                      y: -20,
-                      scale: 0.95,
-                      transition: { duration: 0.2 },
-                    }}
-                    className="mb-8"
-                  >
-                    <ChatMessage
-                      message={message}
-                      isUser={message.role === "user"}
-                      onResendLastMessage={handleResendLastMessage}
+                    <Image
+                      src="/icons/menu_icon.png"
+                      alt="Expand sidebar"
+                      width={20}
+                      height={20}
+                      className="w-5 h-5 object-contain"
                     />
-                    {message.role === "user" && (
-                      <div className="flex items-center gap-1 mt-1 ml-2">
-                        {message.status === "error" && (
-                          <span className="text-xs text-red-500">
-                            Failed to send
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </motion.div>
-                ))}
-              </AnimatePresence>
+                  </button>
+                )}
+                {showSidebar === "minimized" && !isMobile && (
+                  <button
+                    onClick={() => setShowSidebar(true)}
+                    className="p-2 rounded-xl hover:bg-gray-100 transition-colors group"
+                    title="Expand sidebar"
+                  >
+                    <Image
+                      src="/icons/expand_icon.png"
+                      alt="Expand sidebar"
+                      width={20}
+                      height={20}
+                      className="w-5 h-5 object-contain opacity-60 group-hover:opacity-80"
+                    />
+                  </button>
+                )}
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  <h2 className="text-lg font-semibold text-gray-800">
+                    {currentChatId
+                      ? chatHistory.find((c) => c.id === currentChatId)
+                          ?.title || "Chat"
+                      : "New Chat"}
+                  </h2>
+                </div>
+              </div>
+            </div>
 
-              {isTyping && (
+            {messages.length === 0 ? (
+              <div className="flex items-center justify-center flex-1 p-4">
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  className="mb-8"
+                  transition={{ duration: 0.8, ease: "easeOut" }}
+                  className="text-center space-y-6 max-w-2xl mx-auto"
                 >
-                  <div className="max-w-4xl mx-auto px-4 py-2">
-                    <div className="flex items-center space-x-2 text-slate-500">
-                      <div className="flex space-x-1">
-                        <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"></div>
-                        <div
-                          className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"
-                          style={{ animationDelay: "0.1s" }}
-                        ></div>
-                        <div
-                          className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"
-                          style={{ animationDelay: "0.2s" }}
-                        ></div>
-                      </div>
-                      <span className="text-sm">I'm thinking...</span>
-                    </div>
-                  </div>
+                  <motion.div
+                    className="relative"
+                    animate={{
+                      scale: [1, 1.02, 1],
+                    }}
+                    transition={{
+                      duration: 4,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                    }}
+                  >
+                    <h1 className="text-[26px] md:text-[36px] lg:text-[52px] font-bold mb-4 relative">
+                      <span
+                        className="bg-gradient-to-r from-slate-900 via-blue-700 to-slate-600 bg-clip-text text-transparent"
+                        style={{
+                          backgroundSize: "200% 100%",
+                          animation: "shimmer 3s ease-in-out infinite",
+                        }}
+                      >
+                        What's on your mind?
+                      </span>
+                    </h1>
+                  </motion.div>
+
+                  <motion.p
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.5, duration: 0.6 }}
+                    className="text-[16px] text-slate-600 font-medium max-w-md mx-auto leading-relaxed"
+                  >
+                    Ask me anything, and I'll help you explore ideas with
+                    thoughtful responses.
+                  </motion.p>
+
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.8, duration: 0.5 }}
+                    className="flex justify-center space-x-1"
+                  >
+                    {[...Array(3)].map((_, i) => (
+                      <motion.div
+                        key={i}
+                        className="w-2 h-2 bg-blue-400 rounded-full"
+                        animate={{
+                          opacity: [0.3, 1, 0.3],
+                          scale: [0.8, 1.2, 0.8],
+                        }}
+                        transition={{
+                          duration: 2,
+                          repeat: Infinity,
+                          delay: i * 0.3,
+                          ease: "easeInOut",
+                        }}
+                      />
+                    ))}
+                  </motion.div>
                 </motion.div>
-              )}
+              </div>
+            ) : (
+              <div className="flex-1 overflow-y-auto bg-white chat-scroll relative">
+                <div className="max-w-4xl mx-auto px-4 pt-8 pb-4">
+                  <AnimatePresence mode="popLayout">
+                    {messages.map((message, index) => (
+                      <motion.div
+                        key={index}
+                        layout
+                        initial={{ opacity: 0, y: 30, scale: 0.95 }}
+                        animate={{
+                          opacity: 1,
+                          y: 0,
+                          scale: 1,
+                          transition: {
+                            type: "spring",
+                            stiffness: 500,
+                            damping: 30,
+                            duration: 0.4,
+                          },
+                        }}
+                        exit={{
+                          opacity: 0,
+                          y: -20,
+                          scale: 0.95,
+                          transition: { duration: 0.2 },
+                        }}
+                        className="mb-8"
+                      >
+                        <ChatMessage
+                          message={message}
+                          isUser={message.role === "user"}
+                          onResendLastMessage={handleResendLastMessage}
+                        />
+                        {message.role === "user" && (
+                          <div className="flex items-center gap-1 mt-1 ml-2">
+                            {message.status === "error" && (
+                              <span className="text-xs text-red-500">
+                                Failed to send
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
 
-              {/* Extra space for mobile keyboard */}
-              <div className={`${isMobile ? "h-32" : "h-16"}`} />
-            </div>
-            <div ref={messagesEndRef} />
-          </div>
-        )}
+                  {isTyping && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      className="mb-8"
+                    >
+                      <div className="max-w-4xl mx-auto px-4 py-2">
+                        <div className="flex items-center space-x-2 text-slate-500">
+                          <div className="flex space-x-1">
+                            <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"></div>
+                            <div
+                              className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"
+                              style={{ animationDelay: "0.1s" }}
+                            ></div>
+                            <div
+                              className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"
+                              style={{ animationDelay: "0.2s" }}
+                            ></div>
+                          </div>
+                          <span className="text-sm">I'm thinking...</span>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
 
-        {/* Chat input at bottom - Mobile optimized */}
-        <div
-          className={`
+                  {/* Extra space for mobile keyboard */}
+                  <div className={`${isMobile ? "h-32" : "h-16"}`} />
+                </div>
+                <div ref={messagesEndRef} />
+              </div>
+            )}
+
+            {/* Chat input at bottom - Mobile optimized */}
+            <div
+              className={`
           bg-white/95 backdrop-blur-sm shrink-0
           ${isMobile ? "sticky bottom-0 pb-safe-area-inset-bottom" : "relative"}
         `}
-        >
-          <div className="max-w-4xl mx-auto pb-4 px-4">
-            <ChatInput onSend={handleSendMessage} isLoading={isLoading} />
+            >
+              <div className="max-w-4xl mx-auto pb-4 px-4">
+                <ChatInput
+                  onSend={handleSendMessage}
+                  onVoiceMode={handleVoiceMode}
+                  isLoading={isLoading}
+                />
+              </div>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

@@ -47,7 +47,11 @@ export async function middleware(request) {
     return NextResponse.redirect(loginUrl);
   }
 
- 
+  if (request.nextUrl.pathname.startsWith('/live')) {
+    // Redirect unauthenticated users from /protected routes to the login page
+    return NextResponse.redirect(new URL('/chat', request.url));
+  }
+
 
   // If no specific rule blocks access, allow the request
   return NextResponse.next();

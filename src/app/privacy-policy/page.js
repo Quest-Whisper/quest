@@ -471,9 +471,15 @@ export default function PrivacyPolicyPage() {
                   Limited Use Compliance:
                 </h3>
                 <p className="text-gray-700 leading-relaxed">
-                  QuestWhisper complies with the <a className="underline text-blue-500" href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data
-                  Policy</a>, including the Limited Use requirements. We do not use
-                  your data for advertising, model training, or any unauthorized
+                  QuestWhisper complies with the{" "}
+                  <a
+                    className="underline text-blue-500"
+                    href="https://developers.google.com/terms/api-services-user-data-policy"
+                  >
+                    Google API Services User Data Policy
+                  </a>
+                  , including the Limited Use requirements. We do not use your
+                  data for advertising, model training, or any unauthorized
                   purpose.
                 </p>
 
@@ -511,9 +517,15 @@ export default function PrivacyPolicyPage() {
                 </h3>
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                   <p className="text-blue-800 text-sm">
-                    <strong>Important:</strong> We do not store your Google Workspace data. All access is temporary and occurs only during your active session to fulfill your specific requests.
-
-We may store anonymized session history or generated summaries that help your AI assistant continue your conversations. These may include non-sensitive metadata like links to documents created through the service, but never include Gmail messages, document contents, calendar events, or other private data retrieved from Google APIs.
+                    <strong>Important:</strong> We do not store your Google
+                    Workspace data. All access is temporary and occurs only
+                    during your active session to fulfill your specific
+                    requests. We may store anonymized session history or
+                    generated summaries that help your AI assistant continue
+                    your conversations. These may include non-sensitive metadata
+                    like links to documents created through the service, but
+                    never include Gmail messages, document contents, calendar
+                    events, or other private data retrieved from Google APIs.
                   </p>
                 </div>
                 <ul className="list-disc pl-6 space-y-2 text-gray-700">
