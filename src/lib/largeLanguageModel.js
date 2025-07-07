@@ -29,8 +29,6 @@ const QUICK_WHISPER_MCP_API_KEY = process.env.QUICK_WHISPER_MCP_API_KEY;
 
 if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is required");
 
-const MCP_SERVER_URL = "https://quick-whisper-mcp-server-service-720003427280.us-central1.run.app/api/mongodb";
-
 const GOOGLE_SEARCH_MCP_SERVER = "https://quick-whisper-mcp-server-service-720003427280.us-central1.run.app/api/google";
 
 const GOOGLE_WORKSPACE_SERVER ="https://quick-whisper-mcp-server-service-720003427280.us-central1.run.app/api/google-workspace"
@@ -42,77 +40,6 @@ const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 ////////////////////////////////////////////////////////////////////////////////
 
 const mcpTools = [
-  {
-    name: "listModels",
-    description: "This tool lists all available models in the database",
-    parameters: { type: "OBJECT", properties: {}, required: [] },
-    execute: async () => {
-      const { data } = await axios.get(`${MCP_SERVER_URL}/models`, {
-        headers: {
-          "x-api-key": QUICK_WHISPER_MCP_API_KEY,
-        },
-      });
-      return data;
-    },
-  },
-  {
-    name: "getModelSchema",
-    description: "This tool gets the schema for a specific model",
-    parameters: {
-      type: "OBJECT",
-      properties: {
-        modelName: { type: "STRING", description: "Name of the model" },
-      },
-      required: ["modelName"],
-    },
-    execute: async ({ modelName }) => {
-      requireParams({ modelName }, "modelName");
-      const { data } = await axios.get(
-        `${MCP_SERVER_URL}/models/${modelName}/schema`,
-        {
-          headers: {
-            "x-api-key": QUICK_WHISPER_MCP_API_KEY,
-          },
-        }
-      );
-      return data;
-    },
-  },
-  {
-    name: "aggregate",
-    description: "This tool to run all aggregation pipelines",
-    parameters: {
-      type: "OBJECT",
-      properties: {
-        modelName: {
-          type: "STRING",
-          description: "Name of the Mongoose model",
-        },
-        pipeline: {
-          type: "ARRAY",
-          items: { type: "OBJECT" },
-          description: "Aggregation stages",
-        },
-      },
-      required: ["modelName", "pipeline"],
-    },
-    execute: async (params) => {
-      requireParams(params, "modelName", "pipeline");
-      if (!Array.isArray(params.pipeline)) {
-        throw new Error("Pipeline must be an array");
-      }
-      const { data } = await axios.post(
-        `${MCP_SERVER_URL}/models/${params.modelName}/aggregate`,
-        { pipeline: params.pipeline },
-        {
-          headers: {
-            "x-api-key": QUICK_WHISPER_MCP_API_KEY,
-          },
-        }
-      );
-      return data;
-    },
-  },
   {
     name: "googleSearch",
     description:
@@ -750,13 +677,51 @@ function extractThoughtsAndFunctionCall(response) {
 async function sendWithRetry(
   chat,
   userMessageContent,
+  userFiles = null,
   { retries = 3, initialDelayMs = 500, backoffFactor = 2 } = {}
 ) {
   let delay = initialDelayMs;
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
+      // Build message parts
+      const parts = [{ text: userMessageContent }];
+      
+      // Add files if present (images inline, others by URI)
+      if (userFiles && Array.isArray(userFiles)) {
+        for (const file of userFiles) {
+          if (file && file.uri) {
+            try {
+              if (file.type === 'image') {
+                // Fetch the image from Firebase Storage and convert to base64
+                const response = await fetch(file.uri);
+                const arrayBuffer = await response.arrayBuffer();
+                const base64Data = Buffer.from(arrayBuffer).toString('base64');
+                
+                parts.push({
+                  inlineData: {
+                    mimeType: file.mimeType,
+                    data: base64Data,
+                  }
+                });
+              } else if (file.type === 'gemini') {
+                // Use Gemini File API URI directly
+                parts.push({
+                  fileData: {
+                    mimeType: file.mimeType,
+                    fileUri: file.uri
+                  }
+                });
+              }
+            } catch (error) {
+              console.error('Error processing file in sendWithRetry:', error);
+              // Continue without this file if processing fails
+            }
+          }
+        }
+      }
+      
       // try sending
-      return await chat.sendMessage({ message: userMessageContent });
+      return await chat.sendMessage({ message: { parts } });
     } catch (err) {
       const isServer500 =
         // if it's a GenAI ServerError and status is 500…
@@ -777,7 +742,7 @@ async function sendWithRetry(
   }
 }
 
-async function handleUserQuery(chat, userMessageContent) {
+async function handleUserQuery(chat, userMessageContent, userFiles = null) {
   console.log("USER MESSAGE:", userMessageContent);
   let response;
   let safetyCounter = 0;
@@ -785,7 +750,7 @@ async function handleUserQuery(chat, userMessageContent) {
   let lastFunctionName = null;
 
   try {
-    response = await sendWithRetry(chat, userMessageContent, {
+    response = await sendWithRetry(chat, userMessageContent, userFiles, {
       retries: 5, // total tries
       initialDelayMs: 1000, // 1s before first retry
       backoffFactor: 2, // 1s, 2s, 4s, …
@@ -1112,9 +1077,47 @@ Name: ${session.user.name}
   const pastMessagesWithoutDefault = pastMessages.slice(1);
 
   // ——— transform into the Content[] shape ———
-  const history = pastMessagesWithoutDefault.map((msg) => ({
-    role: msg.role,
-    parts: [{ text: msg.content }],
+  const history = await Promise.all(pastMessagesWithoutDefault.map(async (msg) => {
+    const parts = [{ text: msg.content }];
+    
+    // Add files if present
+    if (msg.files && Array.isArray(msg.files)) {
+      for (const file of msg.files) {
+        if (file && file.uri) {
+          try {
+            if (file.type === 'image') {
+              // Fetch the image from Firebase Storage and convert to base64
+              const response = await fetch(file.uri);
+              const arrayBuffer = await response.arrayBuffer();
+              const base64Data = Buffer.from(arrayBuffer).toString('base64');
+              
+              parts.push({
+                inlineData: {
+                  mimeType: file.mimeType,
+                  data: base64Data,
+                }
+              });
+            } else if (file.type === 'gemini') {
+              // Use Gemini File API URI directly
+              parts.push({
+                fileData: {
+                  mimeType: file.mimeType,
+                  fileUri: file.uri
+                }
+              });
+            }
+          } catch (error) {
+            console.error('Error processing file for history:', error);
+            // Continue without this file if processing fails
+          }
+        }
+      }
+    }
+    
+    return {
+      role: msg.role,
+      parts: parts,
+    };
   }));
 
   //const historyWithAiLast = history.slice(0, -1);
@@ -1138,7 +1141,7 @@ Name: ${session.user.name}
     history,
   });
 
-  return await handleUserQuery(chat, userMessage.content);
+  return await handleUserQuery(chat, userMessage.content, userMessage.files);
 }
 
 // New streaming function
@@ -1162,9 +1165,47 @@ Name: ${session.user.name}
   const pastMessagesWithoutDefault = pastMessages.slice(1);
 
   // Transform into the Content[] shape
-  const history = pastMessagesWithoutDefault.map((msg) => ({
-    role: msg.role,
-    parts: [{ text: msg.content }],
+  const history = await Promise.all(pastMessagesWithoutDefault.map(async (msg) => {
+    const parts = [{ text: msg.content }];
+    
+    // Add files if present
+    if (msg.files && Array.isArray(msg.files)) {
+      for (const file of msg.files) {
+        if (file && file.uri) {
+          try {
+            if (file.type === 'image') {
+              // Fetch the image from Firebase Storage and convert to base64
+              const response = await fetch(file.uri);
+              const arrayBuffer = await response.arrayBuffer();
+              const base64Data = Buffer.from(arrayBuffer).toString('base64');
+              
+              parts.push({
+                inlineData: {
+                  mimeType: file.mimeType,
+                  data: base64Data,
+                }
+              });
+            } else if (file.type === 'gemini') {
+              // Use Gemini File API URI directly
+              parts.push({
+                fileData: {
+                  mimeType: file.mimeType,
+                  fileUri: file.uri
+                }
+              });
+            }
+          } catch (error) {
+            console.error('Error processing file for streaming history:', error);
+            // Continue without this file if processing fails
+          }
+        }
+      }
+    }
+    
+    return {
+      role: msg.role,
+      parts: parts,
+    };
   }));
 
   console.log("Streaming History: " + JSON.stringify(history));
@@ -1186,7 +1227,7 @@ Name: ${session.user.name}
   });
 
   try {
-    yield* handleUserQueryStreaming(chat, userMessage.content);
+    yield* handleUserQueryStreaming(chat, userMessage.content, userMessage.files);
   } catch (error) {
     console.error("Error in streaming generation:", error);
     yield { type: 'error', error: 'Failed to generate response' };
@@ -1194,7 +1235,7 @@ Name: ${session.user.name}
 }
 
 // Streaming version of handleUserQuery
-async function* handleUserQueryStreaming(chat, userMessageContent) {
+async function* handleUserQueryStreaming(chat, userMessageContent, userFiles = null) {
   console.log("USER MESSAGE (STREAMING):", userMessageContent);
   let response;
   let safetyCounter = 0;
@@ -1204,9 +1245,45 @@ async function* handleUserQueryStreaming(chat, userMessageContent) {
   try {
     // For streaming, we'll use Gemini's streaming API
     // Build the full conversation history including the new user message
+    const userParts = [{ text: userMessageContent }];
+    
+    // Add files if present
+    if (userFiles && Array.isArray(userFiles)) {
+      for (const file of userFiles) {
+        if (file && file.uri) {
+          try {
+            if (file.type === 'image') {
+              // Fetch the image from Firebase Storage and convert to base64
+              const response = await fetch(file.uri);
+              const arrayBuffer = await response.arrayBuffer();
+              const base64Data = Buffer.from(arrayBuffer).toString('base64');
+              
+              userParts.push({
+                inlineData: {
+                  mimeType: file.mimeType,
+                  data: base64Data,
+                }
+              });
+            } else if (file.type === 'gemini') {
+              // Use Gemini File API URI directly
+              userParts.push({
+                fileData: {
+                  mimeType: file.mimeType,
+                  fileUri: file.uri
+                }
+              });
+            }
+          } catch (error) {
+            console.error('Error processing current user file:', error);
+            // Continue without this file if processing fails
+          }
+        }
+      }
+    }
+    
     const conversationHistory = [
       ...chat.history,
-      { role: 'user', parts: [{ text: userMessageContent }] }
+      { role: 'user', parts: userParts }
     ];
     
     const streamingResponse = await ai.models.generateContentStream({

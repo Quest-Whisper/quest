@@ -7,12 +7,14 @@ import {
   ClipboardDocumentIcon,
   MicrophoneIcon,
   ShareIcon,
+  DocumentIcon,
 } from "@heroicons/react/24/outline";
 import { useEffect, useState, useMemo, useCallback } from "react";
 import toast from "react-hot-toast";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import Image from "next/image";
+import React from "react"; // Added missing import for React.Children
 
 // Minimal WAV header builder for 16-bit PCM @ 24 kHz mono
 // 1) WAV‐header helper
@@ -50,11 +52,11 @@ function makeWavHeader(dataLength, sampleRate, numChannels, bitsPerSample) {
 const audioContext = new AudioContext();
 */
 
-  // 3) Fetch + play
-  async function fetchAndPlay(message) {
-    const controller = new AbortController();
-    setAbortController(controller);
-    setIsLoading(true);
+// 3) Fetch + play
+async function fetchAndPlay(message) {
+  const controller = new AbortController();
+  setAbortController(controller);
+  setIsLoading(true);
 
   try {
     // stripMarkdown is your existing helper
@@ -129,7 +131,12 @@ const audioContext = new AudioContext();
   }
 }
 
-export default function ChatMessage({ message, isUser, onRetry, onResendLastMessage }) {
+export default function ChatMessage({
+  message,
+  isUser,
+  onRetry,
+  onResendLastMessage,
+}) {
   const [parsedSources, setParsedSources] = useState([]);
   const [wavUrl, setWavUrl] = useState(null);
   const [isHovered, setIsHovered] = useState(false);
@@ -142,11 +149,17 @@ export default function ChatMessage({ message, isUser, onRetry, onResendLastMess
   const isError = !isUser && message.isError;
   const isStreaming = !isUser && message.isStreaming;
   // Check if this is the specific error message that needs retry
-  const isRetryableError = !isUser && message.content?.trim() === "I apologize, but I couldn't process your request. Please try again.";
-  const isRetryable = isRetryableError || (!isUser && message.isRetryable && onRetry);
+  const isRetryableError =
+    !isUser &&
+    message.content?.trim() ===
+      "I apologize, but I couldn't process your request. Please try again.";
+  const isRetryable =
+    isRetryableError || (!isUser && message.isRetryable && onRetry);
   const sources = message.sources?.length ? message.sources : parsedSources;
   const hasSources = !isUser && sources.length > 0;
   const hasDisplayImage = !isUser && message.displayImage;
+  const hasUserAttachments = isUser && message.attachments && message.attachments.length > 0;
+  const hasAttachedImage = !isUser && message.image && message.image.uri;
 
   // Handle retry for the specific error message
   const handleRetry = useCallback(() => {
@@ -313,80 +326,133 @@ export default function ChatMessage({ message, isUser, onRetry, onResendLastMess
   }
 
   // Custom components for ReactMarkdown
+  const extractText = (children) => {
+    if (Array.isArray(children)) return children.join("");
+    if (typeof children === "string") return children;
+    if (children?.props?.children) return extractText(children.props.children);
+    return "";
+  };
+
   const components = {
-    h1: ({ node, ...props }) => (
-      <h1
-        className="text-2xl font-bold mb-6 text-slate-800 leading-tight"
-        {...props}
-      />
+    // Basic text components - return content directly for code
+    p: ({ children }) => {
+      // Check if the children contain a code block
+      const hasCodeBlock = React.Children.toArray(children).some(
+        (child) => React.isValidElement(child) && child.type === "code"
+      );
+
+      // If there's a code block, return children directly to avoid p > div nesting
+      if (hasCodeBlock) {
+        return children;
+      }
+
+      // Otherwise render as normal paragraph
+      return <p className="mb-6 text-slate-700 leading-relaxed">{children}</p>;
+    },
+
+    // Only handle fenced code blocks, ignore inline code
+    code: ({ inline, children, className }) => {
+      // If it's inline code, treat it as regular text by returning just the content
+      if (inline) {
+        const text = Array.isArray(children)
+          ? children.join("")
+          : String(children);
+        return text;
+      }
+
+      // Only style actual code blocks (triple backticks)
+      const match = /language-(\w+)/.exec(className || "");
+      const language = match ? match[1] : "text";
+      const text = String(children).replace(/\n$/, "");
+
+      return (
+        <div className="my-6 rounded-xl overflow-hidden bg-[#edf6f9]">
+          <div className="flex items-center justify-between px-4 py-3">
+            <span className="text-[#66757F] text-sm capitalize">
+              {language}
+            </span>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(text);
+                toast.success("Code copied to clipboard!");
+              }}
+              className="flex gap-[5px] justify-center px-3 py-1.5 w-[100px] cursor-pointer text-xs rounded-md text-[#66757F]"
+            >
+              <ClipboardDocumentIcon className="w-4 h-4" />
+              <span>Copy</span>
+            </button>
+          </div>
+          <pre className="p-5 overflow-x-auto">
+            <code className="text-[14px] text-black font-mono whitespace-pre-wrap">
+              {text}
+            </code>
+          </pre>
+        </div>
+      );
+    },
+
+    // Remove the pre component since we handle code blocks in the code component
+    pre: ({ children }) => children,
+
+    // Basic structural components
+    h1: ({ children }) => (
+      <h1 className="text-2xl font-bold mb-6 text-slate-800 leading-tight">
+        {children}
+      </h1>
     ),
-    h2: ({ node, ...props }) => (
-      <h2
-        className="text-xl font-bold mt-8 mb-4 text-slate-800 leading-tight"
-        {...props}
-      />
+    h2: ({ children }) => (
+      <h2 className="text-xl font-bold mt-8 mb-4 text-slate-800 leading-tight">
+        {children}
+      </h2>
     ),
-    h3: ({ node, ...props }) => (
-      <h3
-        className="text-lg font-bold mb-4 text-slate-700 leading-tight"
-        {...props}
-      />
+    h3: ({ children }) => (
+      <h3 className="text-lg font-bold mb-4 text-slate-700 leading-tight">
+        {children}
+      </h3>
     ),
-    h4: ({ node, ...props }) => (
-      <h4 className="text-base font-semibold mb-3 text-slate-700" {...props} />
+    ul: ({ children }) => (
+      <ul className="list-disc pl-6 mb-6 space-y-3 text-slate-700">
+        {children}
+      </ul>
     ),
-    h5: ({ node, ...props }) => (
-      <h5 className="text-sm font-semibold mb-2 text-slate-600" {...props} />
+    ol: ({ children }) => (
+      <ol className="list-decimal pl-6 mb-6 space-y-3 text-slate-700">
+        {children}
+      </ol>
     ),
-    h6: ({ node, ...props }) => (
-      <h6 className="text-sm font-medium mb-2 text-slate-600" {...props} />
+    li: ({ children }) => <li className="leading-relaxed mb-2">{children}</li>,
+    blockquote: ({ children }) => (
+      <blockquote className="border-l-4 border-blue-300 pl-6 italic text-slate-600 my-6 bg-blue-50/70 py-4 rounded-r-lg shadow-sm">
+        {children}
+      </blockquote>
     ),
-    p: ({ node, ...props }) => (
-      <p className="mb-4 text-slate-700 leading-relaxed" {...props} />
-    ),
-    ul: ({ node, ...props }) => (
-      <ul className="list-disc pl-6 mb-4 space-y-2 text-slate-700" {...props} />
-    ),
-    ol: ({ node, ...props }) => (
-      <ol
-        className="list-decimal pl-6 mb-4 space-y-2 text-slate-700"
-        {...props}
-      />
-    ),
-    li: ({ node, ...props }) => <li className="leading-relaxed" {...props} />,
-    blockquote: ({ node, ...props }) => (
-      <blockquote
-        className="border-l-4 border-blue-200 pl-4 italic text-slate-600 my-4 bg-blue-50/50 py-2 rounded-r-lg"
-        {...props}
-      />
-    ),
-    code: ({ node, inline, ...props }) =>
-      inline ? (
-        <code
-          className="bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded text-sm font-mono"
+
+    // Basic table formatting
+    table: ({ node, ...props }) => (
+      <div className="overflow-x-auto my-6">
+        <table
+          className="min-w-full border-collapse border border-slate-300 bg-white rounded-lg shadow-sm"
           {...props}
         />
-      ) : (
-        <code
-          className="block bg-slate-900 text-slate-100 p-4 rounded-lg text-sm font-mono overflow-x-auto"
-          {...props}
-        />
-      ),
-    pre: ({ node, ...props }) => (
-      <pre
-        className="bg-slate-900 rounded-lg overflow-hidden my-4"
+      </div>
+    ),
+    thead: ({ node, ...props }) => <thead className="bg-slate-50" {...props} />,
+    tbody: ({ node, ...props }) => <tbody {...props} />,
+    tr: ({ node, ...props }) => (
+      <tr
+        className="border-b border-slate-200 hover:bg-slate-50/50 transition-colors"
         {...props}
       />
     ),
-    strong: ({ node, ...props }) => (
-      <strong className="font-semibold text-slate-800" {...props} />
+    th: ({ node, ...props }) => (
+      <th
+        className="px-4 py-3 text-left text-sm font-semibold text-slate-700 border-r border-slate-200 last:border-r-0"
+        {...props}
+      />
     ),
-    em: ({ node, ...props }) => (
-      <em className="italic text-slate-700" {...props} />
-    ),
-    a: ({ node, ...props }) => (
-      <a
-        className="text-blue-600 hover:text-blue-700 underline underline-offset-2 transition-colors"
+    td: ({ node, ...props }) => (
+      <td
+        className="px-4 py-3 text-sm text-slate-700 border-r border-slate-200 last:border-r-0"
         {...props}
       />
     ),
@@ -443,13 +509,13 @@ export default function ChatMessage({ message, isUser, onRetry, onResendLastMess
       const samplesPerChunk = Math.floor(sampleRate * chunkDurationSeconds);
 
       let pcmBuffer = new Int16Array(0);
-            let nextPlayTime = audioContext.currentTime;
+      let nextPlayTime = audioContext.currentTime;
       let streamFinished = false;
       let totalBytesReceived = 0;
       let chunksScheduled = 0;
       let activeAudioNodes = 0;
       let hasStartedPlaying = false;
-      
+
       // Buffer for incomplete chunks - fixes the fragmentation issue
       let incompleteByteBuffer = new Uint8Array(0);
 
@@ -482,7 +548,7 @@ export default function ChatMessage({ message, isUser, onRetry, onResendLastMess
           sourceNode.buffer = audioBuffer;
           sourceNode.connect(audioContext.destination);
 
-                    // Track this audio node so we can stop it later
+          // Track this audio node so we can stop it later
           setAudioNodes((prev) => [...prev, sourceNode]);
           activeAudioNodes++;
 
@@ -565,12 +631,12 @@ export default function ChatMessage({ message, isUser, onRetry, onResendLastMess
 
               // Mark stream as finished and schedule remaining audio
               streamFinished = true;
-              
+
               setTimeout(() => {
                 if (!controller.signal.aborted) {
                   // Schedule any remaining audio - be more aggressive about playing all remaining data
                   let remainingChunks = 0;
-                  
+
                   // First, try to schedule complete chunks
                   while (pcmBuffer.length >= samplesPerChunk) {
                     if (scheduleAudioChunk()) {
@@ -579,7 +645,7 @@ export default function ChatMessage({ message, isUser, onRetry, onResendLastMess
                       break;
                     }
                   }
-                  
+
                   // Then, if there's still data left (even if incomplete), schedule it
                   if (pcmBuffer.length > 0) {
                     try {
@@ -603,7 +669,9 @@ export default function ChatMessage({ message, isUser, onRetry, onResendLastMess
                       activeAudioNodes++;
 
                       sourceNode.onended = () => {
-                        setAudioNodes((prev) => prev.filter((node) => node !== sourceNode));
+                        setAudioNodes((prev) =>
+                          prev.filter((node) => node !== sourceNode)
+                        );
                         activeAudioNodes--;
                         if (streamFinished && activeAudioNodes === 0) {
                           setIsPlaying(false);
@@ -617,7 +685,7 @@ export default function ChatMessage({ message, isUser, onRetry, onResendLastMess
 
                       sourceNode.start(nextPlayTime);
                       remainingChunks++;
-                      
+
                       // Clear the buffer since we've scheduled everything
                       pcmBuffer = new Int16Array(0);
                     } catch (finalAudioError) {
@@ -628,7 +696,7 @@ export default function ChatMessage({ message, isUser, onRetry, onResendLastMess
 
                 // Clear the timer
                 clearInterval(audioTimer);
-                
+
                 // If no audio nodes are playing, we can stop immediately
                 if (activeAudioNodes === 0) {
                   setIsPlaying(false);
@@ -696,20 +764,21 @@ export default function ChatMessage({ message, isUser, onRetry, onResendLastMess
           }
         } catch (streamError) {
           // Check if this is an intentional abort
-          const isAborted = controller.signal.aborted || 
-                           streamError.name === 'AbortError' || 
-                           streamError.message?.includes('aborted');
-          
+          const isAborted =
+            controller.signal.aborted ||
+            streamError.name === "AbortError" ||
+            streamError.message?.includes("aborted");
+
           streamFinished = true;
           clearInterval(audioTimer);
           setIsLoading(false);
-          
+
           // Only stop immediately if no audio is playing
           if (activeAudioNodes === 0) {
             setIsPlaying(false);
             setAbortController(null);
           }
-          
+
           // Only fallback if not aborted (genuine error)
           if (!isAborted) {
             fetchAndPlay(text);
@@ -721,14 +790,15 @@ export default function ChatMessage({ message, isUser, onRetry, onResendLastMess
       processStream();
     } catch (err) {
       // Check if this is an intentional abort
-      const isAborted = controller.signal.aborted || 
-                       err.name === 'AbortError' || 
-                       err.message?.includes('aborted');
-      
+      const isAborted =
+        controller.signal.aborted ||
+        err.name === "AbortError" ||
+        err.message?.includes("aborted");
+
       setIsLoading(false);
       setIsPlaying(false);
       setAbortController(null);
-      
+
       // Only fallback if not aborted (genuine error)
       if (!isAborted) {
         fetchAndPlay(text);
@@ -748,7 +818,10 @@ export default function ChatMessage({ message, isUser, onRetry, onResendLastMess
 
   const shareToSocial = (platform) => {
     const text = removeSources(message.content || "");
-    const shareText = `Check out this AI response from QuestWhisper:\n\n${text.substring(0, 200)}${text.length > 200 ? '...' : ''}`;
+    const shareText = `Check out this AI response from QuestWhisper:\n\n${text.substring(
+      0,
+      200
+    )}${text.length > 200 ? "..." : ""}`;
     const url = encodeURIComponent(window.location.href);
     const encodedText = encodeURIComponent(shareText);
 
@@ -762,9 +835,11 @@ export default function ChatMessage({ message, isUser, onRetry, onResendLastMess
     };
 
     if (shareUrls[platform]) {
-      window.open(shareUrls[platform], '_blank', 'width=600,height=400');
+      window.open(shareUrls[platform], "_blank", "width=600,height=400");
       setShowShareModal(false);
-      toast.success(`Shared to ${platform.charAt(0).toUpperCase() + platform.slice(1)}!`);
+      toast.success(
+        `Shared to ${platform.charAt(0).toUpperCase() + platform.slice(1)}!`
+      );
     }
   };
 
@@ -772,7 +847,9 @@ export default function ChatMessage({ message, isUser, onRetry, onResendLastMess
     const text = removeSources(message.content || "");
     const subject = "AI Response from QuestWhisper";
     const body = `I wanted to share this AI response with you:\n\n${text}\n\nGenerated by QuestWhisper AI`;
-    const mailtoUrl = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    const mailtoUrl = `mailto:?subject=${encodeURIComponent(
+      subject
+    )}&body=${encodeURIComponent(body)}`;
     window.location.href = mailtoUrl;
     setShowShareModal(false);
     toast.success("Email client opened!");
@@ -783,16 +860,18 @@ export default function ChatMessage({ message, isUser, onRetry, onResendLastMess
       // Create a shareable version of the message
       const shareData = {
         content: removeSources(message.content || ""),
-        title: `AI Response - ${new Date(message.timestamp).toLocaleDateString()}`,
+        title: `AI Response - ${new Date(
+          message.timestamp
+        ).toLocaleDateString()}`,
         sources: message.sources || [],
         displayImage: message.displayImage || null,
       };
 
       // Create a shareable link via API
-      const response = await fetch('/api/share', {
-        method: 'POST',
+      const response = await fetch("/api/share", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(shareData),
       });
@@ -804,12 +883,14 @@ export default function ChatMessage({ message, isUser, onRetry, onResendLastMess
         setShowShareModal(false);
         toast.success("Shareable link copied to clipboard!");
       } else {
-        throw new Error(result.error || 'Failed to create share link');
+        throw new Error(result.error || "Failed to create share link");
       }
     } catch (error) {
-      console.error('Share error:', error);
+      console.error("Share error:", error);
       // Fallback to copying content as text
-      const shareText = `QuestWhisper AI Response:\n\n${removeSources(message.content || "")}\n\nGenerated at: ${new Date(message.timestamp).toLocaleString()}`;
+      const shareText = `QuestWhisper AI Response:\n\n${removeSources(
+        message.content || ""
+      )}\n\nGenerated at: ${new Date(message.timestamp).toLocaleString()}`;
       await navigator.clipboard.writeText(shareText);
       setShowShareModal(false);
       toast.success("Content copied to clipboard!");
@@ -819,11 +900,20 @@ export default function ChatMessage({ message, isUser, onRetry, onResendLastMess
   const downloadAsText = () => {
     const text = removeSources(message.content || "");
     const timestamp = new Date(message.timestamp).toLocaleString();
-    const content = `QuestWhisper AI Response\n${'='.repeat(25)}\n\nGenerated: ${timestamp}\n\n${text}\n\n${message.sources?.length ? '\nSources:\n' + message.sources.map((s, i) => `${i + 1}. ${s.title} - ${s.url}`).join('\n') : ''}`;
-    
-    const blob = new Blob([content], { type: 'text/plain' });
+    const content = `QuestWhisper AI Response\n${"=".repeat(
+      25
+    )}\n\nGenerated: ${timestamp}\n\n${text}\n\n${
+      message.sources?.length
+        ? "\nSources:\n" +
+          message.sources
+            .map((s, i) => `${i + 1}. ${s.title} - ${s.url}`)
+            .join("\n")
+        : ""
+    }`;
+
+    const blob = new Blob([content], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
     a.download = `questwhisper-response-${Date.now()}.txt`;
     document.body.appendChild(a);
@@ -850,22 +940,52 @@ export default function ChatMessage({ message, isUser, onRetry, onResendLastMess
         onClick={(e) => e.stopPropagation()}
       >
         <div className="text-center mb-6">
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">Share Response</h3>
-          <p className="text-sm text-gray-600">Choose how you'd like to share this AI response</p>
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">
+            Share Response
+          </h3>
+          <p className="text-sm text-gray-600">
+            Choose how you'd like to share this AI response
+          </p>
         </div>
 
         <div className="space-y-4">
           {/* Social Media Sharing */}
           <div>
-            <h4 className="text-sm font-medium text-gray-700 mb-3">Social Media</h4>
+            <h4 className="text-sm font-medium text-gray-700 mb-3">
+              Social Media
+            </h4>
             <div className="grid grid-cols-3 gap-3">
               {[
-                { name: 'twitter', label: 'Twitter', color: 'bg-blue-400 hover:bg-blue-500' },
-                { name: 'facebook', label: 'Facebook', color: 'bg-blue-600 hover:bg-blue-700' },
-                { name: 'linkedin', label: 'LinkedIn', color: 'bg-blue-800 hover:bg-blue-900' },
-                { name: 'whatsapp', label: 'WhatsApp', color: 'bg-green-500 hover:bg-green-600' },
-                { name: 'telegram', label: 'Telegram', color: 'bg-blue-500 hover:bg-blue-600' },
-                { name: 'reddit', label: 'Reddit', color: 'bg-orange-500 hover:bg-orange-600' },
+                {
+                  name: "twitter",
+                  label: "Twitter",
+                  color: "bg-blue-400 hover:bg-blue-500",
+                },
+                {
+                  name: "facebook",
+                  label: "Facebook",
+                  color: "bg-blue-600 hover:bg-blue-700",
+                },
+                {
+                  name: "linkedin",
+                  label: "LinkedIn",
+                  color: "bg-blue-800 hover:bg-blue-900",
+                },
+                {
+                  name: "whatsapp",
+                  label: "WhatsApp",
+                  color: "bg-green-500 hover:bg-green-600",
+                },
+                {
+                  name: "telegram",
+                  label: "Telegram",
+                  color: "bg-blue-500 hover:bg-blue-600",
+                },
+                {
+                  name: "reddit",
+                  label: "Reddit",
+                  color: "bg-orange-500 hover:bg-orange-600",
+                },
               ].map((platform) => (
                 <motion.button
                   key={platform.name}
@@ -882,7 +1002,9 @@ export default function ChatMessage({ message, isUser, onRetry, onResendLastMess
 
           {/* Direct Actions */}
           <div>
-            <h4 className="text-sm font-medium text-gray-700 mb-3">Direct Actions</h4>
+            <h4 className="text-sm font-medium text-gray-700 mb-3">
+              Direct Actions
+            </h4>
             <div className="space-y-2">
               <motion.button
                 onClick={shareViaEmail}
@@ -893,7 +1015,9 @@ export default function ChatMessage({ message, isUser, onRetry, onResendLastMess
                 <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
                   📧
                 </div>
-                <span className="text-sm font-medium text-gray-700">Share via Email</span>
+                <span className="text-sm font-medium text-gray-700">
+                  Share via Email
+                </span>
               </motion.button>
 
               <motion.button
@@ -905,7 +1029,9 @@ export default function ChatMessage({ message, isUser, onRetry, onResendLastMess
                 <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
                   🔗
                 </div>
-                <span className="text-sm font-medium text-gray-700">Create Share Link</span>
+                <span className="text-sm font-medium text-gray-700">
+                  Create Share Link
+                </span>
               </motion.button>
 
               <motion.button
@@ -917,7 +1043,9 @@ export default function ChatMessage({ message, isUser, onRetry, onResendLastMess
                 <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
                   💾
                 </div>
-                <span className="text-sm font-medium text-gray-700">Download as File</span>
+                <span className="text-sm font-medium text-gray-700">
+                  Download as File
+                </span>
               </motion.button>
             </div>
           </div>
@@ -973,6 +1101,7 @@ export default function ChatMessage({ message, isUser, onRetry, onResendLastMess
               transition={{ duration: 0.2 }}
               layout={!isStreaming} // Disable layout animation during streaming
             >
+              {/* Display  images */}
               {hasDisplayImage && (
                 <motion.div
                   className="mb-6 flex justify-center"
@@ -985,6 +1114,27 @@ export default function ChatMessage({ message, isUser, onRetry, onResendLastMess
                     className="rounded-xl max-h-80 w-auto object-cover shadow-md"
                     alt="AI generated image"
                   />
+                </motion.div>
+              )}
+
+              {/* Display AI response with attached image */}
+              {hasAttachedImage && (
+                <motion.div
+                  className="mb-6"
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.2 }}
+                >
+                  <div className="relative">
+                    <img
+                      src={message.image.uri}
+                      className="rounded-xl max-h-80 w-auto object-cover shadow-md"
+                      alt={message.image.displayName || "Attached image"}
+                      onError={(e) => {
+                        e.target.style.display = "none";
+                      }}
+                    />
+                  </div>
                 </motion.div>
               )}
 
@@ -1001,74 +1151,115 @@ export default function ChatMessage({ message, isUser, onRetry, onResendLastMess
                 </motion.div>
               )}
 
-              <motion.article
-                className="text-[16px] leading-relaxed text-slate-800"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: isStreaming ? 0 : 0.1 }} // Faster transition for streaming
-                layout={!isStreaming} // Disable layout animation during streaming
-              >
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
-                  components={components}
+              {!isUser ? (
+                <motion.article
+                  className="text-[16px] leading-relaxed text-slate-800"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: isStreaming ? 0 : 0.1 }} // Faster transition for streaming
+                  layout={!isStreaming} // Disable layout animation during streaming
                 >
-                  {removeSources(message.content)}
-                </ReactMarkdown>
-                
-                {/* Streaming indicator */}
-                {isStreaming && (
-                  <motion.div
-                    className="flex items-center gap-2 mt-2"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: [0, 1, 0] }}
-                    transition={{ 
-                      duration: 1.5, 
-                      repeat: Infinity,
-                      ease: "easeInOut"
-                    }}
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={components}
                   >
-                    <div className="flex space-x-1">
-                      <motion.div 
-                        className="w-2 h-2 bg-blue-400 rounded-full"
-                        animate={{
-                          scale: [1, 1.2, 1],
-                          opacity: [0.5, 1, 0.5]
-                        }}
-                        transition={{
-                          duration: 1,
-                          repeat: Infinity,
-                          delay: 0
-                        }}
-                      />
-                      <motion.div
-                        className="w-2 h-2 bg-blue-400 rounded-full"
-                        animate={{
-                          scale: [1, 1.2, 1],
-                          opacity: [0.5, 1, 0.5]
-                        }}
-                        transition={{
-                          duration: 1,
-                          repeat: Infinity,
-                          delay: 0.2
-                        }}
-                      />
-                      <motion.div
-                        className="w-2 h-2 bg-blue-400 rounded-full"
-                        animate={{
-                          scale: [1, 1.2, 1],
-                          opacity: [0.5, 1, 0.5]
-                        }}
-                        transition={{
-                          duration: 1,
-                          repeat: Infinity,
-                          delay: 0.4
-                        }}
-                      />
+                    {removeSources(message.content)}
+                  </ReactMarkdown>
+
+                  {/* Streaming indicator */}
+                  {isStreaming && (
+                    <motion.div
+                      className="flex items-center gap-2 mt-2"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: [0, 1, 0] }}
+                      transition={{
+                        duration: 1.5,
+                        repeat: Infinity,
+                        ease: "easeInOut",
+                      }}
+                    >
+                      <div className="flex space-x-1">
+                        <motion.div
+                          className="w-2 h-2 bg-blue-400 rounded-full"
+                          animate={{
+                            scale: [1, 1.2, 1],
+                            opacity: [0.5, 1, 0.5],
+                          }}
+                          transition={{
+                            duration: 1,
+                            repeat: Infinity,
+                            delay: 0,
+                          }}
+                        />
+                        <motion.div
+                          className="w-2 h-2 bg-blue-400 rounded-full"
+                          animate={{
+                            scale: [1, 1.2, 1],
+                            opacity: [0.5, 1, 0.5],
+                          }}
+                          transition={{
+                            duration: 1,
+                            repeat: Infinity,
+                            delay: 0.2,
+                          }}
+                        />
+                        <motion.div
+                          className="w-2 h-2 bg-blue-400 rounded-full"
+                          animate={{
+                            scale: [1, 1.2, 1],
+                            opacity: [0.5, 1, 0.5],
+                          }}
+                          transition={{
+                            duration: 1,
+                            repeat: Infinity,
+                            delay: 0.4,
+                          }}
+                        />
+                      </div>
+                      <span className="text-sm text-slate-500">
+                        generating...
+                      </span>
+                    </motion.div>
+                  )}
+                </motion.article>
+              ) : (
+                <div className="flex flex-col">
+                  {/* Display user-uploaded attachments */}
+                  {hasUserAttachments && (
+                    <div className="mb-3 flex flex-wrap gap-2">
+                      {message.attachments.map((attachment, index) => (
+                        <div key={index} className="relative">
+                          {attachment.type.startsWith('image/') ? (
+                            <img
+                              src={attachment.url}
+                              className="rounded-xl h-[80px] w-[80px] object-cover border border-gray-200"
+                              alt={attachment.displayName || "Uploaded image"}
+                              onError={(e) => {
+                                // If the image fails to load, hide it
+                                e.target.style.display = "none";
+                                console.error(
+                                  "Failed to load image:",
+                                  attachment.url
+                                );
+                              }}
+                            />
+                          ) : (
+                            <div className="rounded-xl h-[80px] w-[80px] bg-gray-100 border border-gray-200 flex flex-col items-center justify-center p-2">
+                              <DocumentIcon className="w-6 h-6 text-gray-500 mb-1" />
+                              <span className="text-xs text-gray-600 text-center truncate w-full">
+                                {attachment.displayName}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      ))}
                     </div>
-                    <span className="text-sm text-slate-500">generating...</span>
-                  </motion.div>
-                )}
-              </motion.article>
+                  )}
+                  <span className="mb-[12px]">
+                    {removeSources(message.content)}
+                  </span>
+                </div>
+              )}
 
               {hasSources && !isStreaming && (
                 <motion.div
@@ -1122,7 +1313,7 @@ export default function ChatMessage({ message, isUser, onRetry, onResendLastMess
 
             {/* Action buttons positioned under the bubble - Don't show for streaming messages */}
             {!isStreaming && (
-              <motion.div 
+              <motion.div
                 className="flex items-center gap-1 mt-1"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -1147,17 +1338,17 @@ export default function ChatMessage({ message, isUser, onRetry, onResendLastMess
                         whileTap={{ scale: 0.95 }}
                         title="Retry this message"
                       >
-                        <svg 
-                          className="w-4 h-4" 
-                          fill="none" 
-                          stroke="currentColor" 
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
                           viewBox="0 0 24 24"
                         >
-                          <path 
-                            strokeLinecap="round" 
-                            strokeLinejoin="round" 
-                            strokeWidth={2} 
-                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" 
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
                           />
                         </svg>
                         <span className="text-sm font-medium">Retry</span>

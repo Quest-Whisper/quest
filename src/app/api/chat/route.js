@@ -21,13 +21,18 @@ async function saveChat(userMessage, aiMessage, context, chatId = null) {
       }
       
       // Add new messages
+      const userMessageToSave = {
+        role: userMessage.role,
+        content: userMessage.content,
+        timestamp: new Date(userMessage.timestamp || Date.now()),
+        user: userMessage.user,
+        attachments: userMessage.attachments || null,
+      };
+      
+      console.log('Saving user message:', JSON.stringify(userMessageToSave, null, 2));
+      
       chat.messages.push(
-        {
-          role: userMessage.role,
-          content: userMessage.content,
-          timestamp: new Date(userMessage.timestamp || Date.now()),
-          user: userMessage.user,
-        },
+        userMessageToSave,
         {
           role: aiMessage.role,
           content: aiMessage.content,
@@ -41,16 +46,21 @@ async function saveChat(userMessage, aiMessage, context, chatId = null) {
       // Create new chat instance with AI-generated title
       const title = await generateConversationTitle(userMessage.content, aiMessage.content);
       
+      const userMessageToSave = {
+        role: userMessage.role,
+        content: userMessage.content,
+        timestamp: new Date(userMessage.timestamp || Date.now()),
+        user: userMessage.user,
+        attachments: userMessage.attachments || null,
+      };
+      
+      console.log('Creating new chat with user message:', JSON.stringify(userMessageToSave, null, 2));
+      
       const newChat = await Chat.create({
         userId: context.userId,
         title: title,
         messages: [
-          {
-            role: userMessage.role,
-            content: userMessage.content,
-            timestamp: new Date(userMessage.timestamp || Date.now()),
-            user: userMessage.user,
-          },
+          userMessageToSave,
           {
             role: aiMessage.role,
             content: aiMessage.content,
@@ -176,6 +186,10 @@ export async function POST(request) {
 
     // Get the latest user message
     const latestMessage = messages[messages.length - 1];
+    
+    // Debug logging
+    console.log('Latest message received by API:', JSON.stringify(latestMessage, null, 2));
+    console.log('Attachments in latest message:', latestMessage.attachments);
 
     // For existing chats, get past messages from the chat document
     let pastMessages = [];
@@ -183,11 +197,29 @@ export async function POST(request) {
       try {
         const existingChat = await Chat.findById(chatId).select('messages');
         if (existingChat) {
-          // Use the last 20 messages from the database
+          // Use the last 20 messages from the database and convert attachments for AI
           pastMessages = existingChat.messages.slice(-20).map(msg => ({
             role: msg.role,
             content: msg.content,
-            user: msg.user
+            user: msg.user,
+            files: msg.attachments ? msg.attachments.map(att => {
+              if (att.type.startsWith('image/')) {
+                // Images are processed inline
+                return {
+                  type: 'image',
+                  mimeType: att.type,
+                  uri: att.url
+                };
+              } else if (att.geminiFile) {
+                // Non-images use Gemini File API
+                return {
+                  type: 'gemini',
+                  uri: att.geminiFile.uri,
+                  mimeType: att.geminiFile.mimeType
+                };
+              }
+              return null;
+            }).filter(Boolean) : null
           }));
         }
       } catch (error) {
@@ -199,15 +231,38 @@ export async function POST(request) {
       pastMessages = messages.slice(0, -1);
     }
 
+    // Convert attachments to format for AI model
+    const messageForAI = {
+      ...latestMessage,
+      files: latestMessage.attachments ? latestMessage.attachments.map(att => {
+        if (att.type.startsWith('image/')) {
+          // Images are processed inline
+          return {
+            type: 'image',
+            mimeType: att.type,
+            uri: att.url
+          };
+        } else if (att.geminiFile) {
+          // Non-images use Gemini File API
+          return {
+            type: 'gemini',
+            uri: att.geminiFile.uri,
+            mimeType: att.geminiFile.mimeType
+          };
+        }
+        return null;
+      }).filter(Boolean) : null
+    };
+
     // Handle streaming response
     if (isStreaming) {
-      return await handleStreamingResponse(session, latestMessage, pastMessages, context, chatId);
+      return await handleStreamingResponse(session, messageForAI, pastMessages, context, chatId);
     }
 
     // Generate AI response (non-streaming)
-    const response = await generateChatCompletion(session, latestMessage, pastMessages);
+    const response = await generateChatCompletion(session, messageForAI, pastMessages);
 
-    // Prepare messages for saving
+    // Prepare messages for saving (use original message for saving)
     const userMessage = {
       role: "user",
       content: latestMessage.content,
@@ -216,6 +271,7 @@ export async function POST(request) {
         name: context.userName || session?.user?.name,
         email: context.userEmail || session?.user?.email,
       },
+      attachments: latestMessage.attachments || null,
     };
 
     const aiMessage = {
@@ -244,7 +300,7 @@ export async function POST(request) {
   }
 }
 
-async function handleStreamingResponse(session, latestMessage, pastMessages, context, chatId) {
+async function handleStreamingResponse(session, messageForAI, pastMessages, context, chatId) {
   let controllerRef;
   let fullResponse = "";
   let streamFinished = false;
@@ -262,7 +318,7 @@ async function handleStreamingResponse(session, latestMessage, pastMessages, con
   // Start the streaming generation in the background
   (async () => {
     try {
-      const streamingGenerator = generateChatCompletionStreaming(session, latestMessage, pastMessages);
+      const streamingGenerator = generateChatCompletionStreaming(session, messageForAI, pastMessages);
       
       for await (const chunk of streamingGenerator) {
         if (streamFinished) break;
@@ -281,15 +337,16 @@ async function handleStreamingResponse(session, latestMessage, pastMessages, con
             controllerRef.enqueue(new TextEncoder().encode(chunkData));
           }
         } else if (chunk.type === 'done') {
-          // Save the completed conversation
+          // Save the completed conversation (use original message for saving)
           const userMessage = {
             role: "user",
-            content: latestMessage.content,
+            content: messageForAI.content,
             timestamp: new Date(),
             user: {
               name: context.userName || session?.user?.name,
               email: context.userEmail || session?.user?.email,
             },
+            attachments: messageForAI.attachments || null,
           };
 
           const aiMessage = {

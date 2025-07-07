@@ -42,7 +42,7 @@ function Chat() {
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  });
 
   // Load chat history on mount
   useEffect(() => {
@@ -192,10 +192,11 @@ function Chat() {
                   "I apologize, but I couldn't process your request. Please try again."
               )
           )
-          .map(({ role, content, user }) => ({
+          .map(({ role, content, user, attachment }) => ({
             role,
             content,
             user,
+            attachment,
           })),
         context: {
           userId: session?.user?.id,
@@ -242,7 +243,14 @@ function Chat() {
     }
   };
 
-  const handleSendMessage = async (content) => {
+  const handleSendMessage = async (messageData) => {
+    // Handle both old string format and new object format for backward compatibility
+    const content = typeof messageData === 'string' ? messageData : messageData.text;
+    const attachments = typeof messageData === 'object' ? messageData.attachments : null;
+    
+    // Log the incoming attachment data for debugging
+    console.log('Incoming attachments data:', attachments);
+    
     const userMessage = {
       role: "user",
       content,
@@ -252,7 +260,11 @@ function Chat() {
         name: session?.user?.name,
         email: session?.user?.email,
       },
+      attachments: attachments || null
     };
+    
+    // Log the constructed message for debugging
+    console.log('Constructed user message:', userMessage);
 
     setMessages((prev) => [...prev, userMessage]);
     setIsLoading(true);
@@ -276,6 +288,9 @@ function Chat() {
 
   const handleStreamingMessage = async (content, userMessage) => {
     try {
+      // Log the messages being sent to API
+      console.log('Sending messages to API:', [...messages, userMessage]);
+
       const response = await fetch("/api/chat?stream=true", {
         method: "POST",
         headers: {
@@ -283,10 +298,11 @@ function Chat() {
         },
         body: JSON.stringify({
           messages: [...messages, userMessage].map(
-            ({ role, content, user }) => ({
+            ({ role, content, user, attachments }) => ({
               role,
               content,
               user,
+              attachments,
             })
           ),
           context: {
@@ -396,20 +412,21 @@ function Chat() {
     }
   };
 
-  const handleNonStreamingMessage = async (content, userMessage) => {
+  const handleNonStreamingMessage = async (content, userMessage, image) => {
     const response = await fetch("/api/chat", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        messages: [...messages, userMessage].map(
-          ({ role, content, user }) => ({
-            role,
-            content,
-            user,
-          })
-        ),
+              body: JSON.stringify({
+          messages: [...messages, userMessage].map(
+            ({ role, content, user, attachments }) => ({
+              role,
+              content,
+              user,
+              attachments,
+            })
+          ),
         context: {
           userId: session?.user?.id,
           userName: session?.user?.name,

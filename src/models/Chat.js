@@ -22,6 +22,14 @@ const chatSchema = new mongoose.Schema({
       type: String,
       required: true,
     },
+    attachments: [{
+      url: { type: String, required: true },
+      type: { type: String, required: true },
+      displayName: { type: String, required: true },
+      size: { type: Number },
+      category: { type: String },
+      geminiFile: { type: Object } // For storing Gemini file processing info
+    }],
     timestamp: {
       type: Date,
       default: Date.now,
@@ -52,6 +60,11 @@ chatSchema.pre('save', function(next) {
 
 // Note: Title generation is now handled by the LLM in the API route
 
-const Chat = mongoose.models.Chat || mongoose.model('Chat', chatSchema);
+// Clear the model cache to ensure schema updates are applied
+if (mongoose.models.Chat) {
+  delete mongoose.models.Chat;
+}
+
+const Chat = mongoose.model('Chat', chatSchema);
 
 export default Chat; 
