@@ -281,7 +281,7 @@ export default function ChatInput({ onSend, isLoading, onVoiceMode }) {
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
-              className="mx-3 mb-2 p-3 bg-gray-50 rounded-lg border max-h-40 overflow-y-auto"
+              className="mx-3 mb-2 p-3 rounded-lg border-b-[1px] border-gray-200 max-h-40 overflow-y-auto"
             >
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-gray-700">
@@ -304,7 +304,7 @@ export default function ChatInput({ onSend, isLoading, onVoiceMode }) {
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: 20 }}
-                    className="flex items-center gap-3 p-2 bg-white rounded-lg border"
+                    className="flex items-center gap-3 p-2 bg-white rounded-lg border-[1px] border-gray-300"
                   >
                     <div className="flex-shrink-0">
                       {preview.category === 'image' && preview.previewUrl ? (

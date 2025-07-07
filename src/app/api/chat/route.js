@@ -325,7 +325,7 @@ async function handleStreamingResponse(session, messageForAI, pastMessages, cont
         
         if (chunk.type === 'content') {
           fullResponse += chunk.content;
-          
+
           // Send the chunk to the client
           const chunkData = JSON.stringify({
             type: 'content',
@@ -357,7 +357,7 @@ async function handleStreamingResponse(session, messageForAI, pastMessages, cont
 
           try {
             const saveResult = await saveChat(userMessage, aiMessage, context, chatId);
-            
+
             // Send completion message
             const completionData = JSON.stringify({
               type: 'done',

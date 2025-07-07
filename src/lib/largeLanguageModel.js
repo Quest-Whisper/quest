@@ -1145,11 +1145,7 @@ Name: ${session.user.name}
 }
 
 // New streaming function
-export async function* generateChatCompletionStreaming(
-  session,
-  userMessage,
-  pastMessages
-) {
+export async function* generateChatCompletionStreaming(session, userMessage, pastMessages) {
   await ensurePrefetched();
 
   const now = getCurrentDateTime();
