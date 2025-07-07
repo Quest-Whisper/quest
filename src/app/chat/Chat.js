@@ -74,7 +74,25 @@ function Chat() {
   const loadChat = (chatId) => {
     const chat = chatHistory.find((c) => c.id === chatId);
     if (chat) {
-      setMessages(chat.messages);
+      // Process messages to ensure proper format for image generation messages
+      const processedMessages = chat.messages.map(msg => {
+        // Ensure image generation messages have the proper flag
+        if (msg.isImageGeneration) {
+          return {
+            ...msg,
+            isImageGeneration: true,
+            // Ensure attachments are properly formatted
+            attachments: msg.attachments?.map(att => ({
+              ...att,
+              isGenerated: att.isGenerated || false,
+              prompt: att.prompt || msg.content
+            })) || null
+          };
+        }
+        return msg;
+      });
+      
+      setMessages(processedMessages);
       setCurrentChatId(chatId);
       // Update URL without triggering navigation
       window.history.replaceState({}, "", `/chat?id=${chatId}`);
@@ -243,14 +261,25 @@ function Chat() {
     }
   };
 
+  const handleChatUpdate = (chatId, isNewChat) => {
+    if (isNewChat && chatId && !currentChatId) {
+      setCurrentChatId(chatId);
+      // Update the URL with the new chat ID
+      if (typeof window !== 'undefined') {
+        window.history.replaceState({}, '', `/chat?id=${chatId}`);
+      }
+      // Reload chat history to show the new chat in the sidebar
+      loadChatHistory();
+    }
+  };
+
   const handleSendMessage = async (messageData) => {
     // Handle both old string format and new object format for backward compatibility
     const content = typeof messageData === 'string' ? messageData : messageData.text;
     const attachments = typeof messageData === 'object' ? messageData.attachments : null;
+    const isImageGeneration = typeof messageData === 'object' ? messageData.isImageGeneration : false;
     
-    // Log the incoming attachment data for debugging
-    console.log('Incoming attachments data:', attachments);
-    
+    // Create the user message
     const userMessage = {
       role: "user",
       content,
@@ -262,20 +291,41 @@ function Chat() {
       },
       attachments: attachments || null
     };
-    
-    // Log the constructed message for debugging
-    console.log('Constructed user message:', userMessage);
 
     setMessages((prev) => [...prev, userMessage]);
     setIsLoading(true);
     setIsTyping(true);
 
     try {
-      // Try streaming first
-      const success = await handleStreamingMessage(content, userMessage);
-      if (!success) {
-        // Fallback to non-streaming
-        await handleNonStreamingMessage(content, userMessage);
+      if (isImageGeneration) {
+        // For image generation, create an AI message that will trigger the image generation
+        const aiMessage = {
+          role: "model",
+          content,
+          timestamp: new Date().toISOString(),
+          status: "complete",
+          isImageGeneration: true,
+          user: {
+            name: session?.user?.name,
+            email: session?.user?.email,
+          },
+          userId: session?.user?.id
+        };
+        setMessages((prev) => [...prev, aiMessage]);
+        
+        // Mark user message as sent
+        setMessages((prev) => 
+          prev.map((msg) =>
+            msg === userMessage ? { ...msg, status: "sent" } : msg
+          )
+        );
+      } else {
+        // Try streaming first
+        const success = await handleStreamingMessage(content, userMessage);
+        if (!success) {
+          // Fallback to non-streaming
+          await handleNonStreamingMessage(content, userMessage);
+        }
       }
     } catch (error) {
       console.error("Error sending message:", error);
@@ -693,9 +743,10 @@ function Chat() {
                           className="mb-8"
                         >
                           <ChatMessage
-                            message={message}
+                            message={{...message, chatId: currentChatId}}
                             isUser={message.role === "user"}
                             onResendLastMessage={handleResendLastMessage}
+                            onChatUpdate={handleChatUpdate}
                           />
                           {message.role === "user" && (
                             <div className="flex items-center gap-1 mt-1 ml-2">

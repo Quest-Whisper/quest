@@ -153,4 +153,48 @@ export function getFileCategory(file) {
 export function needsGeminiUpload(file) {
   // Images are processed inline, everything else needs Gemini File API
   return !file.type.startsWith('image/');
+}
+
+// New function to upload generated image blobs to Firebase
+export async function uploadGeneratedImageToFirebase(imageBlob, userId, prompt) {
+  try {
+    // Create a unique file name for the generated image
+    const timestamp = Date.now();
+    const sanitizedPrompt = prompt.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 50);
+    const fileName = `${userId}/generated_images/${timestamp}_${sanitizedPrompt}.png`;
+    
+    // Create a reference to the file location
+    const storageRef = ref(storage, fileName);
+    
+    // Upload the blob
+    const snapshot = await uploadBytes(storageRef, imageBlob, {
+      contentType: 'image/png',
+      customMetadata: {
+        'generated': 'true',
+        'prompt': prompt.substring(0, 500), // Store prompt in metadata (truncated)
+        'timestamp': timestamp.toString()
+      }
+    });
+    
+    // Get the download URL
+    const downloadURL = await getDownloadURL(snapshot.ref);
+    
+    return {
+      success: true,
+      url: downloadURL,
+      fileName: fileName,
+      type: 'image/png',
+      size: imageBlob.size,
+      displayName: `Generated: ${prompt.substring(0, 50)}${prompt.length > 50 ? '...' : ''}.png`,
+      category: 'image',
+      isGenerated: true,
+      prompt: prompt
+    };
+  } catch (error) {
+    console.error('Error uploading generated image:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
 } 

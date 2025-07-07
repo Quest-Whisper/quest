@@ -8,8 +8,9 @@ import {
   MicrophoneIcon,
   ShareIcon,
   DocumentIcon,
+  ArrowDownTrayIcon,
 } from "@heroicons/react/24/outline";
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import toast from "react-hot-toast";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -131,11 +132,15 @@ async function fetchAndPlay(message) {
   }
 }
 
+// Remove the global set and replace with useRef
+// const processedImageMessages = new Set();
+
 export default function ChatMessage({
   message,
   isUser,
   onRetry,
   onResendLastMessage,
+  onChatUpdate,
 }) {
   const [parsedSources, setParsedSources] = useState([]);
   const [wavUrl, setWavUrl] = useState(null);
@@ -145,21 +150,257 @@ export default function ChatMessage({
   const [abortController, setAbortController] = useState(null);
   const [audioNodes, setAudioNodes] = useState([]);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [generatedImageUrl, setGeneratedImageUrl] = useState(null);
+  const [processedMessageId, setProcessedMessageId] = useState(null);
+  
+  // Add refs for tracking requests and cleanup
+  const activeRequestRef = useRef(null);
+  const processedMessagesRef = useRef(new Set());
+  const isMountedRef = useRef(true);
 
+  // Define message type flags
   const isError = !isUser && message.isError;
   const isStreaming = !isUser && message.isStreaming;
-  // Check if this is the specific error message that needs retry
-  const isRetryableError =
-    !isUser &&
-    message.content?.trim() ===
-      "I apologize, but I couldn't process your request. Please try again.";
-  const isRetryable =
-    isRetryableError || (!isUser && message.isRetryable && onRetry);
+  const isRetryableError = !isUser && message.content?.trim() === "I apologize, but I couldn't process your request. Please try again.";
+  const isRetryable = isRetryableError || (!isUser && message.isRetryable && onRetry);
   const sources = message.sources?.length ? message.sources : parsedSources;
   const hasSources = !isUser && sources.length > 0;
   const hasDisplayImage = !isUser && message.displayImage;
   const hasUserAttachments = isUser && message.attachments && message.attachments.length > 0;
   const hasAttachedImage = !isUser && message.image && message.image.uri;
+  // Check for image generation from both runtime flag and database flag
+  const isImageGeneration = !isUser && (message.isImageGeneration || message.isImageGeneration === true);
+
+  // Set mounted ref
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  // Create messageId only once per message
+  const messageId = useMemo(() => {
+    return `${message.timestamp || Date.now()}_${message.content?.substring(0, 50) || 'empty'}_${isImageGeneration}`;
+  }, [message.timestamp, message.content, isImageGeneration]);
+
+  // Add debug logging for component lifecycle and state changes
+  useEffect(() => {
+    if (isImageGeneration) {
+      console.log('=== Image Generation Debug ===');
+      console.log('Message ID:', messageId);
+      console.log('Current State:', {
+        isGeneratingImage,
+        processedMessageId,
+        hasAttachments: !!message.attachments?.length,
+        generatedImageUrl: !!generatedImageUrl,
+        isInGlobalSet: processedMessagesRef.current.has(messageId)
+      });
+    }
+  }, [isImageGeneration, messageId, isGeneratingImage, processedMessageId, message.attachments, generatedImageUrl]);
+
+  // Add debug logging for loading state changes
+  useEffect(() => {
+    if (isImageGeneration) {
+      console.log('🔄 Loading state changed:', {
+        isGeneratingImage,
+        messageId,
+        timestamp: new Date().toISOString()
+      });
+    }
+  }, [isGeneratingImage, messageId, isImageGeneration]);
+
+  // Modify the generateImage function with detailed logging
+  const generateImage = async () => {
+    // Check if already processed or generating
+    if (isGeneratingImage || processedMessagesRef.current.has(messageId)) {
+      console.log('🚫 Image generation skipped:', {
+        reason: isGeneratingImage ? 'Already generating' : 'Already processed',
+        messageId,
+        content: message.content?.substring(0, 50)
+      });
+      return;
+    }
+
+    // Create an abort controller for this request
+    const controller = new AbortController();
+    activeRequestRef.current = controller;
+    
+    console.log('🎨 Starting image generation:', {
+      messageId,
+      content: message.content?.substring(0, 50),
+      timestamp: new Date().toISOString()
+    });
+
+    // Set loading state BEFORE the API call
+    setIsGeneratingImage(true);
+    processedMessagesRef.current.add(messageId);
+    
+    let hasError = false;
+    try {
+      // Prepare request body
+      const requestBody = {
+        prompt: message.content,
+        chatId: message.chatId || null,
+        context: {
+          userName: message.user?.name,
+          userEmail: message.user?.email,
+          userId: message.user?.id
+        }
+      };
+
+      console.log('📤 Sending API request:', {
+        messageId,
+        requestBody,
+        timestamp: new Date().toISOString()
+      });
+
+      const response = await fetch('/api/chat/image-generation', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+        signal: controller.signal
+      });
+
+      // Log raw response for debugging
+      const responseText = await response.text();
+      console.log('📥 Received API response text:', {
+        messageId,
+        status: response.status,
+        text: responseText,
+        timestamp: new Date().toISOString()
+      });
+
+      // Parse response as JSON
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('Failed to parse response as JSON:', parseError);
+        throw new Error('Invalid JSON response from server');
+      }
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Failed to generate image');
+      }
+
+      console.log('📥 Processed API response:', {
+        messageId,
+        success: data.success,
+        hasImageData: !!data.imageData,
+        timestamp: new Date().toISOString()
+      });
+
+      if (data.imageData) {
+        // Create a data URL from the base64 image data
+        const imageUrl = `data:image/png;base64,${data.imageData}`;
+        setGeneratedImageUrl(imageUrl);
+        if (onChatUpdate && data.chatId) {
+          onChatUpdate(data.chatId, data.isNewChat);
+        }
+        console.log('🖼️ Image processed successfully:', {
+          messageId,
+          hasAttachment: true,
+          timestamp: new Date().toISOString()
+        });
+      }
+    } catch (error) {
+      // Check if this is an intentional abort (component unmount)
+      const isAborted = controller.signal.aborted || 
+                       error.name === 'AbortError' || 
+                       error.message?.includes('aborted');
+      
+      if (!isAborted) {
+        console.error('❌ Image generation error:', {
+          messageId,
+          error: error?.message || String(error),
+          timestamp: new Date().toISOString()
+        });
+        hasError = true;
+      } else {
+        console.log('ℹ️ Image generation aborted (likely component unmount):', {
+          messageId,
+          timestamp: new Date().toISOString()
+        });
+      }
+    } finally {
+      // Only reset loading state if the component is still mounted and we have a result
+      if (isMountedRef.current && !hasError) {
+        setIsGeneratingImage(false);
+      }
+      // Clear the active request if it's this one
+      if (activeRequestRef.current === controller) {
+        activeRequestRef.current = null;
+      }
+    }
+  };
+
+  // Cleanup effect - only run on component unmount
+  useEffect(() => {
+    return () => {
+      // Cleanup image URL (only if it's a blob URL, not a data URL)
+      if (generatedImageUrl && generatedImageUrl.startsWith('blob:')) {
+        console.log('🧹 Cleaning up image URL:', {
+          messageId,
+          timestamp: new Date().toISOString()
+        });
+        URL.revokeObjectURL(generatedImageUrl);
+      }
+      
+      // Abort any active request
+      if (activeRequestRef.current) {
+        console.log('🛑 Aborting active request:', {
+          messageId,
+          timestamp: new Date().toISOString()
+        });
+        activeRequestRef.current.abort();
+      }
+      
+      // Remove from processed messages
+      if (processedMessagesRef.current.has(messageId)) {
+        console.log('🧹 Removing from processed tracking:', {
+          messageId,
+          timestamp: new Date().toISOString()
+        });
+        processedMessagesRef.current.delete(messageId);
+      }
+    };
+  }, []); // Empty dependency array - only run on mount/unmount
+
+  // Image generation effect
+  useEffect(() => {
+    if (isImageGeneration && 
+        message.content && 
+        !processedMessagesRef.current.has(messageId) &&
+        !generatedImageUrl && 
+        !message.attachments?.length &&
+        !isGeneratingImage) {
+      console.log('🔄 Effect triggered image generation:', {
+        messageId,
+        content: message.content?.substring(0, 50),
+        conditions: {
+          isImageGeneration,
+          hasContent: !!message.content,
+          notProcessed: !processedMessagesRef.current.has(messageId),
+          noGeneratedUrl: !generatedImageUrl,
+          noAttachments: !message.attachments?.length,
+          notGenerating: !isGeneratingImage
+        },
+        timestamp: new Date().toISOString()
+      });
+      generateImage();
+    }
+  }, [messageId, isImageGeneration, message.content, message.attachments]); // Removed generatedImageUrl and isGeneratingImage from dependencies
+
+  // Reset processed message ID when component unmounts
+  useEffect(() => {
+    return () => {
+      setProcessedMessageId(null);
+    };
+  }, []);
 
   // Handle retry for the specific error message
   const handleRetry = useCallback(() => {
@@ -924,6 +1165,26 @@ export default function ChatMessage({
     toast.success("Response downloaded as text file!");
   };
 
+  const handleImageDownload = async (imageUrl, prompt) => {
+    try {
+      // Create a temporary anchor element
+      const link = document.createElement('a');
+      link.href = imageUrl;
+      // Create filename from prompt or use timestamp
+      const filename = prompt 
+        ? `ai-image-${prompt.slice(0, 30).replace(/[^a-z0-9]/gi, '-')}.png`
+        : `ai-image-${Date.now()}.png`;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success('Image downloaded successfully!');
+    } catch (error) {
+      console.error('Download error:', error);
+      toast.error('Failed to download image');
+    }
+  };
+
   const ShareModal = () => (
     <motion.div
       initial={{ opacity: 0 }}
@@ -1101,6 +1362,63 @@ export default function ChatMessage({
               transition={{ duration: 0.2 }}
               layout={!isStreaming} // Disable layout animation during streaming
             >
+              {/* Display generated image */}
+              {isImageGeneration && (
+                <div className="mb-6">
+                  {isGeneratingImage ? (
+                    <div className="w-full h-64 bg-gray-100 rounded-xl flex items-center justify-center">
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                        <p className="text-sm text-gray-600">Generating your image...</p>
+                      </div>
+                    </div>
+                  ) : (message.attachments?.[0]?.url || generatedImageUrl) ? (
+                    <div className="relative">
+                      <img
+                        src={message.attachments?.[0]?.url || generatedImageUrl}
+                        alt={message.imageDescription || message.attachments?.[0]?.prompt || "Generated image"}
+                        className="rounded-xl max-h-96 w-auto object-contain shadow-md"
+                        onError={(e) => {
+                          console.error('Image load error:', e);
+                          // If the permanent URL fails, fallback to the temporary URL
+                          if (e.target.src !== generatedImageUrl && generatedImageUrl) {
+                            console.log('Falling back to temporary URL');
+                            e.target.src = generatedImageUrl;
+                          }
+                        }}
+                      />
+                      {(message.imageDescription || message.attachments?.[0]?.prompt) && (
+                        <p className="mt-3 text-sm text-gray-600 italic">
+                          {message.imageDescription || `Generated from: "${message.attachments?.[0]?.prompt}"`}
+                        </p>
+                      )}
+                      {message.attachments?.[0]?.isGenerated && (
+                        <div className="mt-2 flex items-center gap-2 text-xs text-gray-500">
+                          <div className="flex items-center gap-2">
+                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-600 rounded-full">
+                              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z"/>
+                              </svg>
+                              AI Generated
+                            </span>
+                            <button
+                              onClick={() => handleImageDownload(
+                                message.attachments?.[0]?.url || generatedImageUrl,
+                                message.attachments?.[0]?.prompt || message.imageDescription
+                              )}
+                              className="inline-flex items-center gap-1 px-2 py-1 bg-gray-50 text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
+                            >
+                              <ArrowDownTrayIcon className="w-3 h-3" />
+                              Download
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+              )}
+
               {/* Display  images */}
               {hasDisplayImage && (
                 <motion.div

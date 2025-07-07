@@ -16,7 +16,7 @@ const chatSchema = new mongoose.Schema({
     role: {
       type: String,
       required: true,
-      enum: ['user', 'model', 'assistant'],
+      enum: ['user', 'model'],
     },
     content: {
       type: String,
@@ -28,8 +28,17 @@ const chatSchema = new mongoose.Schema({
       displayName: { type: String, required: true },
       size: { type: Number },
       category: { type: String },
-      geminiFile: { type: Object } // For storing Gemini file processing info
+      geminiFile: { type: Object }, // For storing Gemini file processing info
+      isGenerated: { type: Boolean, default: false }, // For generated images
+      prompt: { type: String } // Store the prompt for generated images
     }],
+    isImageGeneration: {
+      type: Boolean,
+      default: false,
+    },
+    imageDescription: {
+      type: String,
+    },
     timestamp: {
       type: Date,
       default: Date.now,

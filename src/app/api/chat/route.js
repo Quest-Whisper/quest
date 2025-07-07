@@ -29,16 +29,17 @@ async function saveChat(userMessage, aiMessage, context, chatId = null) {
         attachments: userMessage.attachments || null,
       };
       
-      console.log('Saving user message:', JSON.stringify(userMessageToSave, null, 2));
+      const aiMessageToSave = {
+        role: aiMessage.role,
+        content: aiMessage.content,
+        timestamp: new Date(aiMessage.timestamp || Date.now()),
+        isImageGeneration: aiMessage.isImageGeneration || false,
+      };
       
-      chat.messages.push(
-        userMessageToSave,
-        {
-          role: aiMessage.role,
-          content: aiMessage.content,
-          timestamp: new Date(aiMessage.timestamp || Date.now()),
-        }
-      );
+      console.log('Saving user message:', JSON.stringify(userMessageToSave, null, 2));
+      console.log('Saving AI message:', JSON.stringify(aiMessageToSave, null, 2));
+      
+      chat.messages.push(userMessageToSave, aiMessageToSave);
       
       await chat.save();
       return { chatId: chat._id, isNew: false };
@@ -54,19 +55,20 @@ async function saveChat(userMessage, aiMessage, context, chatId = null) {
         attachments: userMessage.attachments || null,
       };
       
+      const aiMessageToSave = {
+        role: aiMessage.role,
+        content: aiMessage.content,
+        timestamp: new Date(aiMessage.timestamp || Date.now()),
+        isImageGeneration: aiMessage.isImageGeneration || false,
+      };
+      
       console.log('Creating new chat with user message:', JSON.stringify(userMessageToSave, null, 2));
+      console.log('Creating new chat with AI message:', JSON.stringify(aiMessageToSave, null, 2));
       
       const newChat = await Chat.create({
         userId: context.userId,
         title: title,
-        messages: [
-          userMessageToSave,
-          {
-            role: aiMessage.role,
-            content: aiMessage.content,
-            timestamp: new Date(aiMessage.timestamp || Date.now()),
-          }
-        ],
+        messages: [userMessageToSave, aiMessageToSave],
       });
       
       return { chatId: newChat._id, isNew: true };
