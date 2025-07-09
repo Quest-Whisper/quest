@@ -69,9 +69,9 @@ export default function Home() {
                   transition={{ duration: 0.8, delay: 0.1 }}
                   className="text-5xl lg:text-6xl font-bold text-gray-900 leading-tight"
                 >
-                  Your AI companion with a{" "}
+                  Your AI companion for{" "}
                   <span className="text-[#4f7269] relative">
-                    voice
+                    everything
                     <motion.div
                       initial={{ width: 0 }}
                       animate={{ width: "100%" }}
@@ -88,9 +88,7 @@ export default function Home() {
                 transition={{ duration: 0.8, delay: 0.3 }}
                 className="text-xl text-gray-600 leading-relaxed"
               >
-                Your all-in-one AI workspace. QuestWhisper connects to your
-                Gmail, Google Drive, Sheets, Docs, Calendar, and the entire web
-                - all through natural voice conversation powered by AI.
+                Experience the future of productivity. QuestWhisper seamlessly integrates with your digital world - from Gmail and Google Workspace to web research and image generation - all through natural conversation with a truly intelligent AI.
               </motion.p>
 
               <motion.div
@@ -337,56 +335,54 @@ export default function Home() {
           >
             <div className="text-center mb-12">
               <h3 className="text-3xl font-bold text-gray-900 mb-4">
-                Just speak naturally, QuestWhisper handles the rest
+                Express your needs, watch AI magic unfold
               </h3>
               <p className="text-gray-600 text-lg max-w-2xl mx-auto">
-                Real examples of how QuestWhisper transforms your voice commands
-                into actions
+                From complex research to creative tasks, see how QuestWhisper transforms your requests into powerful actions
               </p>
             </div>
 
             <div className="grid md:grid-cols-2 gap-8 max-w-6xl mx-auto">
               {[
                 {
-                  voice: "Read my latest emails and create a summary report",
+                  voice: "Research AI trends and create a presentation for the team",
                   steps: [
-                    "Access Gmail",
-                    "Analyze content",
-                    "Create Google Doc",
-                    "Share summary",
+                    "Search web sources",
+                    "Extract key insights",
+                    "Create Slides deck",
+                    "Add Unsplash visuals",
                   ],
-                  time: "~2 min",
+                  time: "~4 min",
                 },
                 {
-                  voice: "Find our Q3 sales data and create a presentation",
+                  voice: "Find and analyze recent tech industry news",
                   steps: [
-                    "Search Drive",
-                    "Extract data",
-                    "Build slides",
-                    "Add insights",
-                  ],
-                  time: "~5 min",
-                },
-                {
-                  voice: "Research AI trends and schedule a team meeting",
-                  steps: [
-                    "Search web",
-                    "Compile research",
-                    "Create event",
-                    "Invite team",
+                    "Search news sources",
+                    "Extract insights",
+                    "Create summary doc",
+                    "Add key trends",
                   ],
                   time: "~3 min",
                 },
                 {
-                  voice:
-                    "Turn my meeting notes into action items and follow up",
+                  voice: "Create a data report with charts from our Q3 spreadsheet",
                   steps: [
-                    "Process notes",
-                    "Create tasks",
-                    "Send emails",
-                    "Set reminders",
+                    "Access Sheets data",
+                    "Generate analysis",
+                    "Create visualizations",
+                    "Build summary doc",
                   ],
                   time: "~4 min",
+                },
+                {
+                  voice: "Design a product mockup and collect team feedback",
+                  steps: [
+                    "Generate AI image",
+                    "Create Forms survey",
+                    "Share with team",
+                    "Compile responses",
+                  ],
+                  time: "~5 min",
                 },
               ].map((example, index) => (
                 <motion.div
@@ -489,13 +485,7 @@ export default function Home() {
                 </p>
                 <div className="space-y-3 mb-6">
                   <div className="text-sm text-gray-600">
-                    • Read and summarize latest emails
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    • Send emails with voice dictation
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    • Smart email search and filtering
+                    • Send emails with just one prompt
                   </div>
                 </div>
                 <div className="text-sm text-gray-500">Used by 15k people</div>
