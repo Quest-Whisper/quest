@@ -17,12 +17,11 @@ export const authOptions = {
             "profile",
             "https://www.googleapis.com/auth/drive.file",
             "https://www.googleapis.com/auth/gmail.send", // for sending emails
-            "https://www.googleapis.com/auth/calendar.readonly", // for reading calender events
             "https://www.googleapis.com/auth/calendar", // for creating calender events
             "https://www.googleapis.com/auth/presentations",// For reading and writing presentations
           ].join(" "),
           access_type: "offline",
-          prompt: "select_account",
+          prompt: "select_account", // consent or select_account
         },
       },
     }),

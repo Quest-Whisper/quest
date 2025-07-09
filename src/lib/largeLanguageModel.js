@@ -1,4 +1,9 @@
-import { GoogleGenAI, FunctionCallingConfigMode, Type, Modality } from "@google/genai";
+import {
+  GoogleGenAI,
+  FunctionCallingConfigMode,
+  Type,
+  Modality,
+} from "@google/genai";
 import axios from "axios";
 import { AXE_AI_SYSTEM_PROMPT } from "./axe-ai-system-prompt.js";
 import { uploadGeneratedImageToFirebase } from "./firebase.js";
@@ -18,7 +23,7 @@ function requireParams(obj, ...fields) {
 
 /** Sleep utility for retry delays */
 function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -30,9 +35,11 @@ const QUICK_WHISPER_MCP_API_KEY = process.env.QUICK_WHISPER_MCP_API_KEY;
 
 if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is required");
 
-const GOOGLE_SEARCH_MCP_SERVER = "https://quick-whisper-mcp-server-service-720003427280.us-central1.run.app/api/google";
+const GOOGLE_SEARCH_MCP_SERVER =
+  "https://quick-whisper-mcp-server-service-720003427280.us-central1.run.app/api/google";
 
-const GOOGLE_WORKSPACE_SERVER ="https://quick-whisper-mcp-server-service-720003427280.us-central1.run.app/api/google-workspace"
+const GOOGLE_WORKSPACE_SERVER =
+  "https://quick-whisper-mcp-server-service-720003427280.us-central1.run.app/api/google-workspace";
 
 const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 
@@ -143,55 +150,6 @@ const mcpTools = [
   },
   // Gmail Tools
   {
-    name: "listGmailMessages",
-    description: "To get user's inbox messages",
-    parameters: {
-      type: "OBJECT",
-      properties: {
-        userId: { type: "STRING", description: "User ID" },
-        maxResults: { type: "NUMBER", description: "Maximum number of results to return (default 10)" },
-        q: { type: "STRING", description: "Search query for filtering emails" }
-      },
-      required: ["userId"]
-    },
-    execute: async (params) => {
-      requireParams(params, "userId");
-      const { data } = await axios.get(`${GOOGLE_WORKSPACE_SERVER}/gmail/messages`, {
-        params: {
-          userId: params.userId,
-          maxResults: params.maxResults || 10,
-          q: params.q || ''
-        },
-        headers: {
-          "x-api-key": QUICK_WHISPER_MCP_API_KEY,
-        },
-      });
-      return data;
-    }
-  },
-  {
-    name: "getGmailMessage",
-    description: "To read full email content",
-    parameters: {
-      type: "OBJECT",
-      properties: {
-        userId: { type: "STRING", description: "User ID" },
-        messageId: { type: "STRING", description: "Gmail message ID" }
-      },
-      required: ["userId", "messageId"]
-    },
-    execute: async (params) => {
-      requireParams(params, "userId", "messageId");
-      const { data } = await axios.get(`${GOOGLE_WORKSPACE_SERVER}/gmail/messages/${params.messageId}`, {
-        params: { userId: params.userId },
-        headers: {
-          "x-api-key": QUICK_WHISPER_MCP_API_KEY,
-        },
-      });
-      return data;
-    }
-  },
-  {
     name: "gmailSendEmail",
     description: "To send emails via Gmail",
     parameters: {
@@ -201,19 +159,26 @@ const mcpTools = [
         to: { type: "STRING", description: "Recipient email address" },
         subject: { type: "STRING", description: "Email subject" },
         body: { type: "STRING", description: "Email body content" },
-        contentType: { type: "STRING", description: "Content type (default: text/plain)" }
+        contentType: {
+          type: "STRING",
+          description: "Content type (default: text/plain)",
+        },
       },
-      required: ["userId", "to", "subject", "body"]
+      required: ["userId", "to", "subject", "body"],
     },
     execute: async (params) => {
       requireParams(params, "userId", "to", "subject", "body");
-      const { data } = await axios.post(`${GOOGLE_WORKSPACE_SERVER}/gmail/send`, params, {
-        headers: {
-          "x-api-key": QUICK_WHISPER_MCP_API_KEY,
-        },
-      });
+      const { data } = await axios.post(
+        `${GOOGLE_WORKSPACE_SERVER}/gmail/send`,
+        params,
+        {
+          headers: {
+            "x-api-key": QUICK_WHISPER_MCP_API_KEY,
+          },
+        }
+      );
       return data;
-    }
+    },
   },
   // Drive Tools
   {
@@ -223,25 +188,31 @@ const mcpTools = [
       type: "OBJECT",
       properties: {
         userId: { type: "STRING", description: "User ID" },
-        pageSize: { type: "NUMBER", description: "Number of files to return (default 10)" },
-        q: { type: "STRING", description: "Search query for filtering files" }
+        pageSize: {
+          type: "NUMBER",
+          description: "Number of files to return (default 10)",
+        },
+        q: { type: "STRING", description: "Search query for filtering files" },
       },
-      required: ["userId"]
+      required: ["userId"],
     },
     execute: async (params) => {
       requireParams(params, "userId");
-      const { data } = await axios.get(`${GOOGLE_WORKSPACE_SERVER}/drive/files`, {
-        params: {
-          userId: params.userId,
-          pageSize: params.pageSize || 10,
-          q: params.q || ''
-        },
-        headers: {
-          "x-api-key": QUICK_WHISPER_MCP_API_KEY,
-        },
-      });
+      const { data } = await axios.get(
+        `${GOOGLE_WORKSPACE_SERVER}/drive/files`,
+        {
+          params: {
+            userId: params.userId,
+            pageSize: params.pageSize || 10,
+            q: params.q || "",
+          },
+          headers: {
+            "x-api-key": QUICK_WHISPER_MCP_API_KEY,
+          },
+        }
+      );
       return data;
-    }
+    },
   },
   {
     name: "driveGetFile",
@@ -250,20 +221,23 @@ const mcpTools = [
       type: "OBJECT",
       properties: {
         userId: { type: "STRING", description: "User ID" },
-        fileId: { type: "STRING", description: "Google Drive file ID" }
+        fileId: { type: "STRING", description: "Google Drive file ID" },
       },
-      required: ["userId", "fileId"]
+      required: ["userId", "fileId"],
     },
     execute: async (params) => {
       requireParams(params, "userId", "fileId");
-      const { data } = await axios.get(`${GOOGLE_WORKSPACE_SERVER}/drive/files/${params.fileId}`, {
-        params: { userId: params.userId },
-        headers: {
-          "x-api-key": QUICK_WHISPER_MCP_API_KEY,
-        },
-      });
+      const { data } = await axios.get(
+        `${GOOGLE_WORKSPACE_SERVER}/drive/files/${params.fileId}`,
+        {
+          params: { userId: params.userId },
+          headers: {
+            "x-api-key": QUICK_WHISPER_MCP_API_KEY,
+          },
+        }
+      );
       return data;
-    }
+    },
   },
   // Google Docs Tools
   {
@@ -273,20 +247,23 @@ const mcpTools = [
       type: "OBJECT",
       properties: {
         userId: { type: "STRING", description: "User ID" },
-        documentId: { type: "STRING", description: "Google Doc ID" }
+        documentId: { type: "STRING", description: "Google Doc ID" },
       },
-      required: ["userId", "documentId"]
+      required: ["userId", "documentId"],
     },
     execute: async (params) => {
       requireParams(params, "userId", "documentId");
-      const { data } = await axios.get(`${GOOGLE_WORKSPACE_SERVER}/docs/${params.documentId}`, {
-        params: { userId: params.userId },
-        headers: {
-          "x-api-key": QUICK_WHISPER_MCP_API_KEY,
-        },
-      });
+      const { data } = await axios.get(
+        `${GOOGLE_WORKSPACE_SERVER}/docs/${params.documentId}`,
+        {
+          params: { userId: params.userId },
+          headers: {
+            "x-api-key": QUICK_WHISPER_MCP_API_KEY,
+          },
+        }
+      );
       return data;
-    }
+    },
   },
   {
     name: "docsCreateDocument",
@@ -297,19 +274,58 @@ const mcpTools = [
         userId: { type: "STRING", description: "User ID" },
         name: { type: "STRING", description: "Document name" },
         content: { type: "STRING", description: "Initial document content" },
-        parentFolderId: { type: "STRING", description: "Optional parent folder ID" }
+        parentFolderId: {
+          type: "STRING",
+          description: "Optional parent folder ID",
+        },
       },
-      required: ["userId", "name"]
+      required: ["userId", "name"],
     },
     execute: async (params) => {
       requireParams(params, "userId", "name");
-      const { data } = await axios.post(`${GOOGLE_WORKSPACE_SERVER}/docs/create`, params, {
-        headers: {
-          "x-api-key": QUICK_WHISPER_MCP_API_KEY,
-        },
-      });
+      const { data } = await axios.post(
+        `${GOOGLE_WORKSPACE_SERVER}/docs/create`,
+        params,
+        {
+          headers: {
+            "x-api-key": QUICK_WHISPER_MCP_API_KEY,
+          },
+        }
+      );
       return data;
-    }
+    },
+  },
+  {
+    name: "docsUpdateDocument",
+    description: "To edit Google Doc content",
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        userId: { type: "STRING", description: "User ID" },
+        documentId: { type: "STRING", description: "Google Doc ID" },
+        requests: {
+          type: "ARRAY",
+          items: {
+            type: "OBJECT",
+            description: "Document update request object",
+          },
+        },
+      },
+      required: ["userId", "documentId", "requests"],
+    },
+    execute: async (params) => {
+      requireParams(params, "userId", "documentId", "requests");
+      const { data } = await axios.patch(
+        `${GOOGLE_WORKSPACE_SERVER}/docs/${params.documentId}`,
+        params,
+        {
+          headers: {
+            "x-api-key": QUICK_WHISPER_MCP_API_KEY,
+          },
+        }
+      );
+      return data;
+    },
   },
   // Google Slides Tools
   {
@@ -332,23 +348,27 @@ const mcpTools = [
               backgroundColor: { type: "OBJECT" },
               titleStyle: { type: "OBJECT" },
               subtitleStyle: { type: "OBJECT" },
-              captionStyle: { type: "OBJECT" }
-            }
+              captionStyle: { type: "OBJECT" },
+            },
           },
-          description: "Array of slide data objects"
-        }
+          description: "Array of slide data objects",
+        },
       },
-      required: ["userId", "title"]
+      required: ["userId", "title"],
     },
     execute: async (params) => {
       requireParams(params, "userId", "title");
-      const { data } = await axios.post(`${GOOGLE_WORKSPACE_SERVER}/slides/create`, params, {
-        headers: {
-          "x-api-key": QUICK_WHISPER_MCP_API_KEY,
-        },
-      });
+      const { data } = await axios.post(
+        `${GOOGLE_WORKSPACE_SERVER}/slides/create`,
+        params,
+        {
+          headers: {
+            "x-api-key": QUICK_WHISPER_MCP_API_KEY,
+          },
+        }
+      );
       return data;
-    }
+    },
   },
   {
     name: "slidesReadPresentation",
@@ -357,22 +377,63 @@ const mcpTools = [
       type: "OBJECT",
       properties: {
         userId: { type: "STRING", description: "User ID" },
-        presentationId: { type: "STRING", description: "Presentation ID" }
+        presentationId: { type: "STRING", description: "Presentation ID" },
       },
-      required: ["userId", "presentationId"]
+      required: ["userId", "presentationId"],
     },
     execute: async (params) => {
       requireParams(params, "userId", "presentationId");
-      const { data } = await axios.get(`${GOOGLE_WORKSPACE_SERVER}/slides/${params.presentationId}`, {
-        params: { userId: params.userId },
-        headers: {
-          "x-api-key": QUICK_WHISPER_MCP_API_KEY,
-        },
-      });
+      const { data } = await axios.get(
+        `${GOOGLE_WORKSPACE_SERVER}/slides/${params.presentationId}`,
+        {
+          params: { userId: params.userId },
+          headers: {
+            "x-api-key": QUICK_WHISPER_MCP_API_KEY,
+          },
+        }
+      );
       return data;
-    }
+    },
   },
   // Google Sheets Tools
+  {
+    name: "sheetsCreateSpreadsheet",
+    description: "To create a spreadsheet with sheets",
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        userId: { type: "STRING", description: "User ID" },
+        title: { type: "STRING", description: "Document Title" },
+        sheets: {
+          type: "ARRAY",
+          items: {
+            type: "OBJECT",
+            properties: {
+              title: { type: "STRING" },
+              data: {
+                type: "ARRAY",
+                items: { type: "ARRAY", items: { type: "STRING" } },
+              },
+            },
+          },
+        },
+      },
+      required: ["userId"],
+    },
+    execute: async (params) => {
+      requireParams(params, "userId");
+      const { data } = await axios.post(
+        `${GOOGLE_WORKSPACE_SERVER}/sheets/create`,
+        params,
+        {
+          headers: {
+            "x-api-key": QUICK_WHISPER_MCP_API_KEY,
+          },
+        }
+      );
+      return data;
+    },
+  },
   {
     name: "sheetsReadSpreadsheet",
     description: "To read data from spreadsheets",
@@ -381,23 +442,112 @@ const mcpTools = [
       properties: {
         userId: { type: "STRING", description: "User ID" },
         spreadsheetId: { type: "STRING", description: "Spreadsheet ID" },
-        range: { type: "STRING", description: "Cell range (e.g., 'Sheet1!A1:Z1000')" }
+        range: {
+          type: "STRING",
+          description: "Cell range (e.g., 'Sheet1!A1:Z1000')",
+        },
       },
-      required: ["userId", "spreadsheetId"]
+      required: ["userId", "spreadsheetId"],
     },
     execute: async (params) => {
       requireParams(params, "userId", "spreadsheetId");
-      const { data } = await axios.get(`${GOOGLE_WORKSPACE_SERVER}/sheets/${params.spreadsheetId}`, {
-        params: {
-          userId: params.userId,
-          range: params.range
-        },
-        headers: {
-          "x-api-key": QUICK_WHISPER_MCP_API_KEY,
-        },
-      });
+      const { data } = await axios.get(
+        `${GOOGLE_WORKSPACE_SERVER}/sheets/${params.spreadsheetId}`,
+        {
+          params: {
+            userId: params.userId,
+            range: params.range,
+          },
+          headers: {
+            "x-api-key": QUICK_WHISPER_MCP_API_KEY,
+          },
+        }
+      );
       return data;
-    }
+    },
+  },
+  {
+    name: "sheetsUpdateSpreadsheet",
+    description:
+      "To update a Google Sheet with new data, properties, and/or title",
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        userId: {
+          type: "STRING",
+          description: "User ID required for authentication",
+        },
+        spreadsheetId: {
+          type: "STRING",
+          description: "The ID of the spreadsheet to update",
+        },
+        title: {
+          type: "STRING",
+          description: "Optional new title for the spreadsheet",
+        },
+        sheets: {
+          type: "ARRAY",
+          description: "Array of sheets to update or create",
+          items: {
+            type: "OBJECT",
+            properties: {
+              title: {
+                type: "STRING",
+                description: "The title of the sheet to update or create",
+              },
+              properties: {
+                type: "OBJECT",
+                description: "Sheet properties to update",
+                properties: {
+                  gridProperties: {
+                    type: "OBJECT",
+                    properties: {
+                      rowCount: { type: "INTEGER" },
+                      columnCount: { type: "INTEGER" },
+                      frozenRowCount: { type: "INTEGER" },
+                      frozenColumnCount: { type: "INTEGER" },
+                    },
+                  },
+                  tabColor: {
+                    type: "OBJECT",
+                    properties: {
+                      red: { type: "NUMBER" },
+                      green: { type: "NUMBER" },
+                      blue: { type: "NUMBER" },
+                    },
+                  },
+                  hidden: { type: "BOOLEAN" },
+                },
+              },
+              data: {
+                type: "ARRAY",
+                description: "2D array of values to update in the sheet",
+                items: {
+                  type: "ARRAY",
+                  items: {
+                    type: ["STRING", "NUMBER"],
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      required: ["userId", "spreadsheetId"],
+    },
+    execute: async (params) => {
+      requireParams(params, "userId", "spreadsheetId");
+      const { data } = await axios.patch(
+        `${GOOGLE_WORKSPACE_SERVER}/sheets/${params.spreadsheetId}`,
+        params,
+        {
+          headers: {
+            "x-api-key": QUICK_WHISPER_MCP_API_KEY,
+          },
+        }
+      );
+      return data;
+    },
   },
   // Google Forms Tools
   {
@@ -417,23 +567,28 @@ const mcpTools = [
               type: { type: "STRING" },
               required: { type: "BOOLEAN" },
               options: { type: "ARRAY", items: { type: "STRING" } },
-              shuffle: { type: "BOOLEAN" }
-            }
-          }
-        }
+              shuffle: { type: "BOOLEAN" },
+            },
+          },
+        },
       },
-      required: ["userId", "title"]
+      required: ["userId", "title"],
     },
     execute: async (params) => {
       requireParams(params, "userId", "title");
-      const { data } = await axios.post(`${GOOGLE_WORKSPACE_SERVER}/forms/create`, params, {
-        headers: {
-          "x-api-key": QUICK_WHISPER_MCP_API_KEY,
-        },
-      });
+      const { data } = await axios.post(
+        `${GOOGLE_WORKSPACE_SERVER}/forms/create`,
+        params,
+        {
+          headers: {
+            "x-api-key": QUICK_WHISPER_MCP_API_KEY,
+          },
+        }
+      );
       return data;
-    }
+    },
   },
+
   {
     name: "formsReadForm",
     description: "To get form structure and responses",
@@ -441,20 +596,56 @@ const mcpTools = [
       type: "OBJECT",
       properties: {
         userId: { type: "STRING", description: "User ID" },
-        formId: { type: "STRING", description: "Form ID" }
+        formId: { type: "STRING", description: "Form ID" },
       },
-      required: ["userId", "formId"]
+      required: ["userId", "formId"],
     },
     execute: async (params) => {
       requireParams(params, "userId", "formId");
-      const { data } = await axios.get(`${GOOGLE_WORKSPACE_SERVER}/forms/${params.formId}`, {
-        params: { userId: params.userId },
-        headers: {
-          "x-api-key": QUICK_WHISPER_MCP_API_KEY,
-        },
-      });
+      const { data } = await axios.get(
+        `${GOOGLE_WORKSPACE_SERVER}/forms/${params.formId}`,
+        {
+          params: { userId: params.userId },
+          headers: {
+            "x-api-key": QUICK_WHISPER_MCP_API_KEY,
+          },
+        }
+      );
       return data;
-    }
+    },
+  },
+
+  {
+    name: "formsUpdateForm",
+    description: "To update a Google Form",
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        userId: { type: "STRING", description: "User ID" },
+        formId: { type: "STRING", description: "Form ID" },
+        requests: {
+          type: "ARRAY",
+          items: {
+            type: "OBJECT",
+            description: "Form update request object",
+          },
+        },
+      },
+      required: ["userId", "formId", "requests"],
+    },
+    execute: async (params) => {
+      requireParams(params, "userId", "formId", "requests");
+      const { data } = await axios.patch(
+        `${GOOGLE_WORKSPACE_SERVER}/forms/${params.formId}`,
+        params,
+        {
+          headers: {
+            "x-api-key": QUICK_WHISPER_MCP_API_KEY,
+          },
+        }
+      );
+      return data;
+    },
   },
   // Google Calendar Tools
   {
@@ -464,25 +655,34 @@ const mcpTools = [
       type: "OBJECT",
       properties: {
         userId: { type: "STRING", description: "User ID" },
-        calendarId: { type: "STRING", description: "Calendar ID (default: primary)" },
-        maxResults: { type: "NUMBER", description: "Maximum number of events to return" }
+        calendarId: {
+          type: "STRING",
+          description: "Calendar ID (default: primary)",
+        },
+        maxResults: {
+          type: "NUMBER",
+          description: "Maximum number of events to return",
+        },
       },
-      required: ["userId"]
+      required: ["userId"],
     },
     execute: async (params) => {
       requireParams(params, "userId");
-      const { data } = await axios.get(`${GOOGLE_WORKSPACE_SERVER}/calendar/get-events`, {
-        params: {
-          userId: params.userId,
-          calendarId: params.calendarId,
-          maxResults: params.maxResults
-        },
-        headers: {
-          "x-api-key": QUICK_WHISPER_MCP_API_KEY,
-        },
-      });
+      const { data } = await axios.get(
+        `${GOOGLE_WORKSPACE_SERVER}/calendar/get-events`,
+        {
+          params: {
+            userId: params.userId,
+            calendarId: params.calendarId,
+            maxResults: params.maxResults,
+          },
+          headers: {
+            "x-api-key": QUICK_WHISPER_MCP_API_KEY,
+          },
+        }
+      );
       return data;
-    }
+    },
   },
   {
     name: "calendarCreateEvent",
@@ -491,7 +691,10 @@ const mcpTools = [
       type: "OBJECT",
       properties: {
         userId: { type: "STRING", description: "User ID" },
-        calendarId: { type: "STRING", description: "Calendar ID (default: primary)" },
+        calendarId: {
+          type: "STRING",
+          description: "Calendar ID (default: primary)",
+        },
         event: {
           type: "OBJECT",
           description: "Event details object",
@@ -500,22 +703,65 @@ const mcpTools = [
             description: { type: "STRING" },
             start: { type: "OBJECT" },
             end: { type: "OBJECT" },
-            attendees: { type: "ARRAY", items: { type: "OBJECT" } }
-          }
-        }
+            attendees: { type: "ARRAY", items: { type: "OBJECT" } },
+          },
+        },
       },
-      required: ["userId", "event"]
+      required: ["userId", "event"],
     },
     execute: async (params) => {
       requireParams(params, "userId", "event");
-      const { data } = await axios.post(`${GOOGLE_WORKSPACE_SERVER}/calendar/create-event`, params, {
-        headers: {
-          "x-api-key": QUICK_WHISPER_MCP_API_KEY,
-        },
-      });
+      const { data } = await axios.post(
+        `${GOOGLE_WORKSPACE_SERVER}/calendar/create-event`,
+        params,
+        {
+          headers: {
+            "x-api-key": QUICK_WHISPER_MCP_API_KEY,
+          },
+        }
+      );
       return data;
-    }
+    },
   },
+  {
+    name: "calendarUpdateEvent",
+    description: "To update a calendar event",
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        userId: { type: "STRING", description: "User ID" },
+        calendarId: {
+          type: "STRING",
+          description: "Calendar ID (default: primary)",
+        },
+        eventId: { type: "STRING", description: "Event ID to update" },
+        event: {
+          type: "OBJECT",
+          description: "Updated event details",
+        },
+      },
+      required: ["userId", "eventId", "event"],
+    },
+    execute: async (params) => {
+      requireParams(params, "userId", "eventId", "event");
+      const { data } = await axios.patch(
+        `${GOOGLE_WORKSPACE_SERVER}/calendar/events/${params.eventId}`,
+        {
+          userId: params.userId,
+          calendarId: params.calendarId,
+          event: params.event,
+        },
+        {
+          headers: {
+            "x-api-key": QUICK_WHISPER_MCP_API_KEY,
+          },
+        }
+      );
+      return data;
+    },
+  },
+
+  //USPLASH TOOLS
   {
     name: "unsplashSearchImages",
     description: "To find images for presentations/documents",
@@ -524,35 +770,49 @@ const mcpTools = [
       properties: {
         userId: { type: "STRING", description: "User ID" },
         searchTerm: { type: "STRING", description: "Image search term" },
-        per_page: { type: "NUMBER", description: "Number of results you want for your search term, default is 1" },
+        per_page: {
+          type: "NUMBER",
+          description:
+            "Number of results you want for your search term, default is 1",
+        },
       },
-      required: ["userId", "searchTerm", "per_page"]
+      required: ["userId", "searchTerm", "per_page"],
     },
     execute: async (params) => {
       requireParams(params, "userId", "searchTerm", "per_page");
-  
-      const { data } = await axios.get(`${GOOGLE_WORKSPACE_SERVER}/unsplash/search`, {
-        params,
-        headers: {
-          "x-api-key": QUICK_WHISPER_MCP_API_KEY,
-        },
-      });
-  
+
+      const { data } = await axios.get(
+        `${GOOGLE_WORKSPACE_SERVER}/unsplash/search`,
+        {
+          params,
+          headers: {
+            "x-api-key": QUICK_WHISPER_MCP_API_KEY,
+          },
+        }
+      );
+
       return data;
-    }
+    },
   },
   {
     name: "generateImage",
-    description: "Use this tool to generate images using Imagen 4.0. The generated image will be saved to Firebase storage.",
+    description:
+      "Use this tool to generate images using Imagen 4.0. The generated image will be saved to Firebase storage.",
     parameters: {
       type: "OBJECT",
       properties: {
-        prompt: { type: "STRING", description: "Detailed description of the image to generate" },
-        userId: { type: "STRING", description: "User ID for storing the generated image" },
+        prompt: {
+          type: "STRING",
+          description: "Detailed description of the image to generate",
+        },
+        userId: {
+          type: "STRING",
+          description: "User ID for storing the generated image",
+        },
         userName: { type: "STRING", description: "User's name for context" },
-        userEmail: { type: "STRING", description: "User's email for context" }
+        userEmail: { type: "STRING", description: "User's email for context" },
       },
-      required: ["prompt", "userId"]
+      required: ["prompt", "userId"],
     },
     execute: async (params) => {
       requireParams(params, "prompt", "userId");
@@ -567,21 +827,25 @@ const mcpTools = [
           prompt: params.prompt,
           config: {
             numberOfImages: 1,
-          }
+          },
         });
 
         // Validate response structure
         if (!response) {
-          throw new Error('No response received from image generation API');
+          throw new Error("No response received from image generation API");
         }
 
-        if (!response.generatedImages || !Array.isArray(response.generatedImages) || response.generatedImages.length === 0) {
-          throw new Error('No generated images found in API response');
+        if (
+          !response.generatedImages ||
+          !Array.isArray(response.generatedImages) ||
+          response.generatedImages.length === 0
+        ) {
+          throw new Error("No generated images found in API response");
         }
 
         const firstImage = response.generatedImages[0];
         if (!firstImage) {
-          throw new Error('First generated image is undefined');
+          throw new Error("First generated image is undefined");
         }
 
         // Check different possible response structures
@@ -596,19 +860,21 @@ const mcpTools = [
           // Another possible structure
           imageBytes = firstImage.data;
         } else {
-          throw new Error('Could not find image data in the expected format');
+          throw new Error("Could not find image data in the expected format");
         }
 
         if (!imageBytes) {
-          throw new Error('Image bytes are empty or undefined');
+          throw new Error("Image bytes are empty or undefined");
         }
-        
+
         // Convert base64 to buffer for Firebase upload
-        const buffer = Buffer.from(imageBytes, 'base64');
+        const buffer = Buffer.from(imageBytes, "base64");
 
         // Generate a unique filename
         const timestamp = Date.now();
-        const sanitizedPrompt = params.prompt.slice(0, 50).replace(/[^a-zA-Z0-9]/g, '_');
+        const sanitizedPrompt = params.prompt
+          .slice(0, 50)
+          .replace(/[^a-zA-Z0-9]/g, "_");
         const filename = `${timestamp}_${sanitizedPrompt}.png`;
         const filePath = `${params.userId}/generated_images/${filename}`;
 
@@ -616,7 +882,7 @@ const mcpTools = [
         const imageUrl = await uploadGeneratedImageToFirebase(
           buffer,
           filePath,
-          'image/png'
+          "image/png"
         );
 
         // Return a properly structured response
@@ -629,43 +895,79 @@ const mcpTools = [
           category: "image",
           isGenerated: true,
           prompt: params.prompt,
-          description: params.prompt
+          description: params.prompt,
         };
-
       } catch (error) {
-        
         // Provide more specific error messages based on the error type
-        if (error.message.includes('No response received') || 
-            error.message.includes('No generated images found') ||
-            error.message.includes('Could not find image data')) {
-          throw new Error(`Image generation API error: ${error.message}. Please try again.`);
-        } else if (error.message.includes('Invalid response structure')) {
-          throw new Error('The image generation service returned an unexpected response format. Please try again.');
-        } else if (error.name === 'TypeError' && error.message.includes('Cannot read properties')) {
-          throw new Error('Image generation failed due to API response format changes. Please try again.');
+        if (
+          error.message.includes("No response received") ||
+          error.message.includes("No generated images found") ||
+          error.message.includes("Could not find image data")
+        ) {
+          throw new Error(
+            `Image generation API error: ${error.message}. Please try again.`
+          );
+        } else if (error.message.includes("Invalid response structure")) {
+          throw new Error(
+            "The image generation service returned an unexpected response format. Please try again."
+          );
+        } else if (
+          error.name === "TypeError" &&
+          error.message.includes("Cannot read properties")
+        ) {
+          throw new Error(
+            "Image generation failed due to API response format changes. Please try again."
+          );
         } else {
           throw new Error(`Failed to generate image: ${error.message}`);
         }
       }
-    }
+    },
   },
   {
     name: "generateImageWithReference",
-    description: "Use this tool to generate images using Gemini 2.0 Flash with an uploaded image as reference. The generated image will be saved to Firebase storage. This tool should be used when the user has uploaded an image and wants to generate a new image based on it.",
+    description:
+      "Use this tool to generate images using Gemini 2.0 Flash with an uploaded image as reference. The generated image will be saved to Firebase storage. This tool should be used when the user has uploaded an image and wants to generate a new image based on it.",
     parameters: {
       type: "OBJECT",
       properties: {
-        prompt: { type: "STRING", description: "Detailed description of the image to generate based on the reference image" },
-        referenceImageUrl: { type: "STRING", description: "URL of the uploaded reference image from Firebase Storage" },
-        referenceImageMimeType: { type: "STRING", description: "MIME type of the reference image (e.g., 'image/jpeg', 'image/png')" },
-        userId: { type: "STRING", description: "User ID for storing the generated image" },
+        prompt: {
+          type: "STRING",
+          description:
+            "Detailed description of the image to generate based on the reference image",
+        },
+        referenceImageUrl: {
+          type: "STRING",
+          description:
+            "URL of the uploaded reference image from Firebase Storage",
+        },
+        referenceImageMimeType: {
+          type: "STRING",
+          description:
+            "MIME type of the reference image (e.g., 'image/jpeg', 'image/png')",
+        },
+        userId: {
+          type: "STRING",
+          description: "User ID for storing the generated image",
+        },
         userName: { type: "STRING", description: "User's name for context" },
-        userEmail: { type: "STRING", description: "User's email for context" }
+        userEmail: { type: "STRING", description: "User's email for context" },
       },
-      required: ["prompt", "referenceImageUrl", "referenceImageMimeType", "userId"]
+      required: [
+        "prompt",
+        "referenceImageUrl",
+        "referenceImageMimeType",
+        "userId",
+      ],
     },
     execute: async (params) => {
-      requireParams(params, "prompt", "referenceImageUrl", "referenceImageMimeType", "userId");
+      requireParams(
+        params,
+        "prompt",
+        "referenceImageUrl",
+        "referenceImageMimeType",
+        "userId"
+      );
 
       try {
         // Initialize the Gemini 2.0 Flash model for image generation with reference
@@ -674,11 +976,13 @@ const mcpTools = [
         // Fetch the reference image from Firebase Storage
         const imageResponse = await fetch(params.referenceImageUrl);
         if (!imageResponse.ok) {
-          throw new Error(`Failed to fetch reference image: ${imageResponse.statusText}`);
+          throw new Error(
+            `Failed to fetch reference image: ${imageResponse.statusText}`
+          );
         }
-        
+
         const imageBuffer = await imageResponse.arrayBuffer();
-        const base64Image = Buffer.from(imageBuffer).toString('base64');
+        const base64Image = Buffer.from(imageBuffer).toString("base64");
 
         // Prepare the content parts for the model
         const contents = [
@@ -701,13 +1005,19 @@ const mcpTools = [
         });
 
         // Validate response structure
-        if (!response || !response.candidates || response.candidates.length === 0) {
-          throw new Error('No response received from image generation API');
+        if (
+          !response ||
+          !response.candidates ||
+          response.candidates.length === 0
+        ) {
+          throw new Error("No response received from image generation API");
         }
 
         const candidate = response.candidates[0];
         if (!candidate || !candidate.content || !candidate.content.parts) {
-          throw new Error('Invalid response structure from image generation API');
+          throw new Error(
+            "Invalid response structure from image generation API"
+          );
         }
 
         // Find the generated image in the response parts
@@ -723,15 +1033,17 @@ const mcpTools = [
         }
 
         if (!generatedImageData) {
-          throw new Error('No generated image found in API response');
+          throw new Error("No generated image found in API response");
         }
 
         // Convert base64 to buffer for Firebase upload
-        const buffer = Buffer.from(generatedImageData, 'base64');
+        const buffer = Buffer.from(generatedImageData, "base64");
 
         // Generate a unique filename
         const timestamp = Date.now();
-        const sanitizedPrompt = params.prompt.slice(0, 50).replace(/[^a-zA-Z0-9]/g, '_');
+        const sanitizedPrompt = params.prompt
+          .slice(0, 50)
+          .replace(/[^a-zA-Z0-9]/g, "_");
         const filename = `${timestamp}_ref_${sanitizedPrompt}.png`;
         const filePath = `${params.userId}/generated_images/${filename}`;
 
@@ -739,7 +1051,7 @@ const mcpTools = [
         const imageUrl = await uploadGeneratedImageToFirebase(
           buffer,
           filePath,
-          'image/png'
+          "image/png"
         );
 
         // Return a properly structured response
@@ -747,7 +1059,10 @@ const mcpTools = [
           success: true,
           url: imageUrl,
           type: "image/png",
-          displayName: `Generated with reference: ${params.prompt.slice(0, 50)}...png`,
+          displayName: `Generated with reference: ${params.prompt.slice(
+            0,
+            50
+          )}...png`,
           size: buffer.length,
           category: "image",
           isGenerated: true,
@@ -755,83 +1070,103 @@ const mcpTools = [
           prompt: params.prompt,
           referenceImageUrl: params.referenceImageUrl,
           description: `Generated image with reference: ${params.prompt}`,
-          responseText: responseText || "Image generated successfully with reference"
+          responseText:
+            responseText || "Image generated successfully with reference",
         };
-
       } catch (error) {
-        console.error('Error in generateImageWithReference:', error);
-        
+        console.error("Error in generateImageWithReference:", error);
+
         // Provide more specific error messages based on the error type
-        if (error.message.includes('Failed to fetch reference image')) {
-          throw new Error(`Could not access the reference image: ${error.message}. Please ensure the image is properly uploaded.`);
-        } else if (error.message.includes('No response received') || 
-                   error.message.includes('No generated image found')) {
-          throw new Error(`Image generation API error: ${error.message}. Please try again with a different prompt or reference image.`);
-        } else if (error.message.includes('Invalid response structure')) {
-          throw new Error('The image generation service returned an unexpected response format. Please try again.');
+        if (error.message.includes("Failed to fetch reference image")) {
+          throw new Error(
+            `Could not access the reference image: ${error.message}. Please ensure the image is properly uploaded.`
+          );
+        } else if (
+          error.message.includes("No response received") ||
+          error.message.includes("No generated image found")
+        ) {
+          throw new Error(
+            `Image generation API error: ${error.message}. Please try again with a different prompt or reference image.`
+          );
+        } else if (error.message.includes("Invalid response structure")) {
+          throw new Error(
+            "The image generation service returned an unexpected response format. Please try again."
+          );
         } else {
-          throw new Error(`Failed to generate image with reference: ${error.message}`);
+          throw new Error(
+            `Failed to generate image with reference: ${error.message}`
+          );
         }
       }
-    }
+    },
   },
   {
     name: "getRecentGeneratedImages",
-    description: "Use this tool to retrieve the last 5 generated images for a user from their current chat session. This allows you to reference or modify previously generated images in the conversation.",
+    description:
+      "Use this tool to retrieve the last 5 generated images for a user from their current chat session. This allows you to reference or modify previously generated images in the conversation.",
     parameters: {
       type: "OBJECT",
       properties: {
-        userId: { type: "STRING", description: "User ID to find their recent generated images" },
+        userId: {
+          type: "STRING",
+          description: "User ID to find their recent generated images",
+        },
         userName: { type: "STRING", description: "User's name for context" },
-        limit: { type: "NUMBER", description: "Number of recent images to retrieve (default: 5, max: 10)" }
+        limit: {
+          type: "NUMBER",
+          description:
+            "Number of recent images to retrieve (default: 5, max: 10)",
+        },
       },
-      required: ["userId"]
+      required: ["userId"],
     },
     execute: async (params) => {
       requireParams(params, "userId");
-      
+
       const limit = Math.min(params.limit || 5, 10); // Default 5, max 10
 
       try {
         // Import Firebase client functions
-        const { initializeApp } = await import('firebase/app');
-        const { getStorage, ref, listAll, getDownloadURL, getMetadata } = await import('firebase/storage');
-        
+        const { initializeApp } = await import("firebase/app");
+        const { getStorage, ref, listAll, getDownloadURL, getMetadata } =
+          await import("firebase/storage");
+
         // Initialize Firebase client
         const firebaseConfig = {
           apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
           authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
           projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
           storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-          messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-          appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
+          messagingSenderId:
+            process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+          appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
         };
 
         const app = initializeApp(firebaseConfig);
         const storage = getStorage(app);
-        
+
         const folderPath = `${params.userId}/generated_images/`;
         const folderRef = ref(storage, folderPath);
-        
+
         // List all files in the user's generated images folder
         const listResult = await listAll(folderRef);
         const files = listResult.items;
 
         if (files.length === 0) {
-          throw new Error('No generated images found for this user');
+          throw new Error("No generated images found for this user");
         }
 
         // Sort files by creation time (newest first)
         // The filename contains timestamp, so we can sort by name
         const sortedFiles = files.sort((a, b) => {
-          const aTime = a.name.split('_')[0];
-          const bTime = b.name.split('_')[0];
+          const aTime = a.name.split("_")[0];
+          const bTime = b.name.split("_")[0];
           return parseInt(bTime) - parseInt(aTime);
         });
 
         // Get the most recent images (up to limit)
         const recentFiles = sortedFiles.slice(0, limit);
-        
+
         // Process each file to get URLs and metadata
         const imagePromises = recentFiles.map(async (file) => {
           try {
@@ -840,12 +1175,16 @@ const mcpTools = [
 
             // Extract metadata from filename
             const filename = file.name;
-            const timestamp = filename.split('_')[0];
-            const promptPart = filename.split('_').slice(1).join('_').replace('.png', '');
-            
+            const timestamp = filename.split("_")[0];
+            const promptPart = filename
+              .split("_")
+              .slice(1)
+              .join("_")
+              .replace(".png", "");
+
             // Get file metadata
             const metadata = await getMetadata(file);
-            
+
             return {
               success: true,
               url: url,
@@ -856,9 +1195,11 @@ const mcpTools = [
               isGenerated: true,
               timestamp: parseInt(timestamp),
               createdAt: new Date(parseInt(timestamp)).toISOString(),
-              description: `Generated image from ${new Date(parseInt(timestamp)).toLocaleString()}`,
-              prompt: promptPart.replace(/_/g, ' '), // Convert underscores back to spaces for readability
-              filename: filename
+              description: `Generated image from ${new Date(
+                parseInt(timestamp)
+              ).toLocaleString()}`,
+              prompt: promptPart.replace(/_/g, " "), // Convert underscores back to spaces for readability
+              filename: filename,
             };
           } catch (fileError) {
             console.error(`Error processing file ${file.name}:`, fileError);
@@ -867,10 +1208,10 @@ const mcpTools = [
         });
 
         const images = await Promise.all(imagePromises);
-        const validImages = images.filter(img => img !== null);
-        
+        const validImages = images.filter((img) => img !== null);
+
         if (validImages.length === 0) {
-          throw new Error('No valid generated images could be retrieved');
+          throw new Error("No valid generated images could be retrieved");
         }
 
         return {
@@ -878,72 +1219,26 @@ const mcpTools = [
           images: validImages,
           count: validImages.length,
           totalFound: files.length,
-          description: `Retrieved ${validImages.length} most recent generated images`
+          description: `Retrieved ${validImages.length} most recent generated images`,
         };
-
       } catch (error) {
-        
-        if (error.message.includes('No generated images found')) {
-          throw new Error('No previously generated images found for this user.');
-        } else if (error.message.includes('No valid generated images')) {
-          throw new Error('Found generated images but could not retrieve their data.');
+        if (error.message.includes("No generated images found")) {
+          throw new Error(
+            "No previously generated images found for this user."
+          );
+        } else if (error.message.includes("No valid generated images")) {
+          throw new Error(
+            "Found generated images but could not retrieve their data."
+          );
         } else {
-          throw new Error(`Failed to retrieve recent generated images: ${error.message}`);
+          throw new Error(
+            `Failed to retrieve recent generated images: ${error.message}`
+          );
         }
       }
-    }
-  }
-  
+    },
+  },
 ];
-
-////////////////////////////////////////////////////////////////////////////////
-// CACHING & PREFETCH
-////////////////////////////////////////////////////////////////////////////////
-
-let modelsCache = [];
-let schemasCache = {};
-let isInitialized = false;
-let prefetchPromise = null;
-
-async function prefetchModelMetadata() {
-  try {
-    const modelData = await executeMcpTool("listModels", {});
-    if (Array.isArray(modelData)) {
-      modelsCache = modelData;
-    } else if (modelData && Array.isArray(modelData.models)) {
-      modelsCache = modelData.models;
-    } else {
-      modelsCache = Object.keys(modelData || {});
-    }
-
-    await Promise.all(
-      modelsCache.map(async (modelName) => {
-        try {
-          schemasCache[modelName] = await executeMcpTool("getModelSchema", {
-            modelName,
-          });
-        } catch {
-          // skip failures
-        }
-      })
-    );
-
-    isInitialized = true;
-  } catch {
-    modelsCache = [];
-    schemasCache = {};
-    isInitialized = false;
-  }
-}
-
-async function ensurePrefetched() {
-  if (!isInitialized && !prefetchPromise) {
-    prefetchPromise = prefetchModelMetadata();
-  }
-  if (prefetchPromise) {
-    await prefetchPromise;
-  }
-}
 
 ////////////////////////////////////////////////////////////////////////////////
 // CORE HELPERS
@@ -952,6 +1247,9 @@ async function ensurePrefetched() {
 export async function executeMcpTool(name, args) {
   const tool = mcpTools.find((t) => t.name === name);
   if (!tool) throw new Error(`No tool named ${name}`);
+
+  console.log("TOOL CALLED : " + tool);
+
   return tool.execute(args);
 }
 
@@ -1038,41 +1336,41 @@ async function sendWithRetry(
     try {
       // Build message parts
       const parts = [{ text: userMessageContent }];
-      
+
       // Add files if present (images inline, others by URI)
       if (userFiles && Array.isArray(userFiles)) {
         for (const file of userFiles) {
           if (file && file.uri) {
             try {
-              if (file.type === 'image') {
+              if (file.type === "image") {
                 // Fetch the image from Firebase Storage and convert to base64
                 const response = await fetch(file.uri);
                 const arrayBuffer = await response.arrayBuffer();
-                const base64Data = Buffer.from(arrayBuffer).toString('base64');
-                
+                const base64Data = Buffer.from(arrayBuffer).toString("base64");
+
                 parts.push({
                   inlineData: {
                     mimeType: file.mimeType,
                     data: base64Data,
-                  }
+                  },
                 });
-              } else if (file.type === 'gemini') {
+              } else if (file.type === "gemini") {
                 // Use Gemini File API URI directly
                 parts.push({
                   fileData: {
                     mimeType: file.mimeType,
-                    fileUri: file.uri
-                  }
+                    fileUri: file.uri,
+                  },
                 });
               }
             } catch (error) {
-              console.error('Error processing file in sendWithRetry:', error);
+              console.error("Error processing file in sendWithRetry:", error);
               // Continue without this file if processing fails
             }
           }
         }
       }
-      
+
       // try sending
       return await chat.sendMessage({ message: { parts } });
     } catch (err) {
@@ -1109,8 +1407,6 @@ async function handleUserQuery(chat, userMessageContent, userFiles = null) {
     response = await chat.sendMessage({ message: "Please try again" });
   }
 
-
-
   try {
     // Extract function calls from Gemini response format
     while (
@@ -1125,8 +1421,6 @@ async function handleUserQuery(chat, userMessageContent, userFiles = null) {
       // Use either the extracted function call or the native functionCalls array
       const functionCallToExecute =
         function_call || (response.functionCalls && response.functionCalls[0]);
-
-
 
       if (functionCallToExecute) {
         const functionName = functionCallToExecute.name;
@@ -1146,8 +1440,6 @@ async function handleUserQuery(chat, userMessageContent, userFiles = null) {
         } else {
           args = {};
         }
-
-
 
         const result = await executeMcpTool(functionName, args);
         lastFunctionResult = result;
@@ -1203,7 +1495,6 @@ async function handleUserQuery(chat, userMessageContent, userFiles = null) {
 
       return "I've analyzed your data, but I'm having trouble formatting the response. Please try your question again.";
     } catch (error) {
-
       // Try to format the results directly if we have them
       if (lastFunctionResult) {
         return formatFunctionResultsDirectly(
@@ -1377,20 +1668,24 @@ Title:`;
 
     const result = await sendWithRetry(chat, prompt);
     const title = extractAssistantText(result).trim();
-    
+
     // Clean up the title and ensure it's within limits
-    const cleanTitle = title.replace(/^["']|["']$/g, '').trim();
-    return cleanTitle.length > 50 ? cleanTitle.substring(0, 47) + '...' : cleanTitle;
+    const cleanTitle = title.replace(/^["']|["']$/g, "").trim();
+    return cleanTitle.length > 50
+      ? cleanTitle.substring(0, 47) + "..."
+      : cleanTitle;
   } catch (error) {
-    console.error('Error generating conversation title:', error);
+    console.error("Error generating conversation title:", error);
     // Fallback to the original method
-    const cleaned = userMessage.trim().replace(/\s+/g, ' ');
+    const cleaned = userMessage.trim().replace(/\s+/g, " ");
     if (cleaned.length <= 50) return cleaned;
-    
+
     const truncated = cleaned.substring(0, 47);
-    const lastSpace = truncated.lastIndexOf(' ');
-    
-    return lastSpace > 20 ? truncated.substring(0, lastSpace) + '...' : truncated + '...';
+    const lastSpace = truncated.lastIndexOf(" ");
+
+    return lastSpace > 20
+      ? truncated.substring(0, lastSpace) + "..."
+      : truncated + "...";
   }
 }
 
@@ -1399,8 +1694,6 @@ export async function generateChatCompletion(
   userMessage,
   pastMessages
 ) {
-  await ensurePrefetched();
-
   const now = getCurrentDateTime();
 
   let userDetails = "No session data available.";
@@ -1417,12 +1710,15 @@ Name: ${session.user.name}
     attachmentContext = `
 
 CURRENT MESSAGE ATTACHMENTS:
-${userMessage.attachments.map((attachment, index) => 
-  `${index + 1}. ${attachment.displayName} (${attachment.category})
+${userMessage.attachments
+  .map(
+    (attachment, index) =>
+      `${index + 1}. ${attachment.displayName} (${attachment.category})
    - URL: ${attachment.url}
    - Type: ${attachment.type}
    - Size: ${attachment.size} bytes`
-).join('\n')}
+  )
+  .join("\n")}
 
 When using generateImageWithReference, use the URL and type from the attachments above.
 `;
@@ -1431,48 +1727,53 @@ When using generateImageWithReference, use the URL and type from the attachments
   const pastMessagesWithoutDefault = pastMessages.slice(1);
 
   // ——— transform into the Content[] shape ———
-  const history = await Promise.all(pastMessagesWithoutDefault.map(async (msg) => {
-    const parts = [{ text: msg.content }];
-    
-    // Add files if present
-    if (msg.attachments && Array.isArray(msg.attachments)) {
-      for (const file of msg.attachments) {
-        if (file && file.url) {
-          try {
-            if (file.category === 'image') {
-              // Fetch the image from Firebase Storage and convert to base64
-              const response = await fetch(file.url);
-              const arrayBuffer = await response.arrayBuffer();
-              const base64Data = Buffer.from(arrayBuffer).toString('base64');
-              
-              parts.push({
-                inlineData: {
-                  mimeType: file.type,
-                  data: base64Data,
-                }
-              });
-            } else if (file.geminiFile) {
-              // Use Gemini File API URI directly
-              parts.push({
-                fileData: {
-                  mimeType: file.type,
-                  fileUri: file.geminiFile.uri
-                }
-              });
+  const history = await Promise.all(
+    pastMessagesWithoutDefault.map(async (msg) => {
+      const parts = [{ text: msg.content }];
+
+      // Add files if present
+      if (msg.attachments && Array.isArray(msg.attachments)) {
+        for (const file of msg.attachments) {
+          if (file && file.url) {
+            try {
+              if (file.category === "image") {
+                // Fetch the image from Firebase Storage and convert to base64
+                const response = await fetch(file.url);
+                const arrayBuffer = await response.arrayBuffer();
+                const base64Data = Buffer.from(arrayBuffer).toString("base64");
+
+                parts.push({
+                  inlineData: {
+                    mimeType: file.type,
+                    data: base64Data,
+                  },
+                });
+              } else if (file.geminiFile) {
+                // Use Gemini File API URI directly
+                parts.push({
+                  fileData: {
+                    mimeType: file.type,
+                    fileUri: file.geminiFile.uri,
+                  },
+                });
+              }
+            } catch (error) {
+              console.error(
+                "Error processing file in generateChatCompletion:",
+                error
+              );
+              // Continue without this file if processing fails
             }
-          } catch (error) {
-            console.error('Error processing file in generateChatCompletion:', error);
-            // Continue without this file if processing fails
           }
         }
       }
-    }
-    
-    return {
-      role: msg.role,
-      parts: parts,
-    };
-  }));
+
+      return {
+        role: msg.role,
+        parts: parts,
+      };
+    })
+  );
 
   //const historyWithAiLast = history.slice(0, -1);
 
@@ -1493,13 +1794,19 @@ When using generateImageWithReference, use the URL and type from the attachments
     history,
   });
 
-  return await handleUserQuery(chat, userMessage.content, userMessage.attachments);
+  return await handleUserQuery(
+    chat,
+    userMessage.content,
+    userMessage.attachments
+  );
 }
 
 // New streaming function
-export async function* generateChatCompletionStreaming(session, userMessage, pastMessages) {
-  await ensurePrefetched();
-
+export async function* generateChatCompletionStreaming(
+  session,
+  userMessage,
+  pastMessages
+) {
   const now = getCurrentDateTime();
 
   let userDetails = "No session data available.";
@@ -1516,12 +1823,15 @@ Name: ${session.user.name}
     attachmentContext = `
 
 CURRENT MESSAGE ATTACHMENTS:
-${userMessage.attachments.map((attachment, index) => 
-  `${index + 1}. ${attachment.displayName} (${attachment.category})
+${userMessage.attachments
+  .map(
+    (attachment, index) =>
+      `${index + 1}. ${attachment.displayName} (${attachment.category})
    - URL: ${attachment.url}
    - Type: ${attachment.type}
    - Size: ${attachment.size} bytes`
-).join('\n')}
+  )
+  .join("\n")}
 
 When using generateImageWithReference, use the URL and type from the attachments above.
 `;
@@ -1530,50 +1840,53 @@ When using generateImageWithReference, use the URL and type from the attachments
   const pastMessagesWithoutDefault = pastMessages.slice(1);
 
   // Transform into the Content[] shape
-  const history = await Promise.all(pastMessagesWithoutDefault.map(async (msg) => {
-    const parts = [{ text: msg.content }];
-    
-    // Add files if present
-    if (msg.attachments && Array.isArray(msg.attachments)) {
-      for (const file of msg.attachments) {
-        if (file && file.url) {
-          try {
-            if (file.category === 'image') {
-              // Fetch the image from Firebase Storage and convert to base64
-              const response = await fetch(file.url);
-              const arrayBuffer = await response.arrayBuffer();
-              const base64Data = Buffer.from(arrayBuffer).toString('base64');
-              
-              parts.push({
-                inlineData: {
-                  mimeType: file.type,
-                  data: base64Data,
-                }
-              });
-            } else if (file.geminiFile) {
-              // Use Gemini File API URI directly
-              parts.push({
-                fileData: {
-                  mimeType: file.type,
-                  fileUri: file.geminiFile.uri
-                }
-              });
+  const history = await Promise.all(
+    pastMessagesWithoutDefault.map(async (msg) => {
+      const parts = [{ text: msg.content }];
+
+      // Add files if present
+      if (msg.attachments && Array.isArray(msg.attachments)) {
+        for (const file of msg.attachments) {
+          if (file && file.url) {
+            try {
+              if (file.category === "image") {
+                // Fetch the image from Firebase Storage and convert to base64
+                const response = await fetch(file.url);
+                const arrayBuffer = await response.arrayBuffer();
+                const base64Data = Buffer.from(arrayBuffer).toString("base64");
+
+                parts.push({
+                  inlineData: {
+                    mimeType: file.type,
+                    data: base64Data,
+                  },
+                });
+              } else if (file.geminiFile) {
+                // Use Gemini File API URI directly
+                parts.push({
+                  fileData: {
+                    mimeType: file.type,
+                    fileUri: file.geminiFile.uri,
+                  },
+                });
+              }
+            } catch (error) {
+              console.error(
+                "Error processing file in generateChatCompletionStreaming:",
+                error
+              );
+              // Continue without this file if processing fails
             }
-          } catch (error) {
-            console.error('Error processing file in generateChatCompletionStreaming:', error);
-            // Continue without this file if processing fails
           }
         }
       }
-    }
-    
-    return {
-      role: msg.role,
-      parts: parts,
-    };
-  }));
 
-
+      return {
+        role: msg.role,
+        parts: parts,
+      };
+    })
+  );
 
   const chat = ai.chats.create({
     model: "gemini-2.5-flash",
@@ -1592,14 +1905,22 @@ When using generateImageWithReference, use the URL and type from the attachments
   });
 
   try {
-    yield* handleUserQueryStreaming(chat, userMessage.content, userMessage.attachments);
+    yield* handleUserQueryStreaming(
+      chat,
+      userMessage.content,
+      userMessage.attachments
+    );
   } catch (error) {
-    yield { type: 'error', error: 'Failed to generate response' };
+    yield { type: "error", error: "Failed to generate response" };
   }
 }
 
 // Streaming version of handleUserQuery
-async function* handleUserQueryStreaming(chat, userMessageContent, userFiles = null) {
+async function* handleUserQueryStreaming(
+  chat,
+  userMessageContent,
+  userFiles = null
+) {
   let response;
   let safetyCounter = 0;
   let lastFunctionResult = null;
@@ -1609,46 +1930,49 @@ async function* handleUserQueryStreaming(chat, userMessageContent, userFiles = n
     // For streaming, we'll use Gemini's streaming API
     // Build the full conversation history including the new user message
     const userParts = [{ text: userMessageContent }];
-    
+
     // Add files if present
     if (userFiles && Array.isArray(userFiles)) {
       for (const file of userFiles) {
         if (file && file.url) {
           try {
-            if (file.category === 'image') {
+            if (file.category === "image") {
               // Fetch the image from Firebase Storage and convert to base64
               const response = await fetch(file.url);
               const arrayBuffer = await response.arrayBuffer();
-              const base64Data = Buffer.from(arrayBuffer).toString('base64');
-              
+              const base64Data = Buffer.from(arrayBuffer).toString("base64");
+
               userParts.push({
                 inlineData: {
                   mimeType: file.type,
                   data: base64Data,
-                }
+                },
               });
             } else if (file.geminiFile) {
               // Use Gemini File API URI directly
               userParts.push({
                 fileData: {
                   mimeType: file.type,
-                  fileUri: file.geminiFile.uri
-                }
+                  fileUri: file.geminiFile.uri,
+                },
               });
             }
           } catch (error) {
-            console.error('Error processing file in handleUserQueryStreaming:', error);
+            console.error(
+              "Error processing file in handleUserQueryStreaming:",
+              error
+            );
             // Continue without this file if processing fails
           }
         }
       }
     }
-    
+
     const conversationHistory = [
       ...chat.history,
-      { role: 'user', parts: userParts }
+      { role: "user", parts: userParts },
     ];
-    
+
     const streamingResponse = await ai.models.generateContentStream({
       model: "gemini-2.5-flash",
       contents: conversationHistory,
@@ -1658,45 +1982,53 @@ async function* handleUserQueryStreaming(chat, userMessageContent, userFiles = n
         toolConfig: chat.config?.toolConfig,
       },
     });
-    
+
     // Handle function calls first if they exist in the initial response
     let initialResponse = null;
     let streamingChunks = [];
-    
+
     for await (const chunk of streamingResponse) {
       if (!initialResponse) {
         initialResponse = chunk;
-        
+
         // Check if there are function calls to handle first
-        if (chunk.functionCalls?.length > 0 || extractThoughtsAndFunctionCall(chunk).function_call) {
+        if (
+          chunk.functionCalls?.length > 0 ||
+          extractThoughtsAndFunctionCall(chunk).function_call
+        ) {
           // We need to handle function calls before streaming text
           response = chunk;
           break;
         }
       }
-      
+
       // If no function calls, start streaming the text response
       const textContent = extractAssistantText(chunk);
       if (textContent) {
         streamingChunks.push(textContent);
-        yield { 
-          type: 'content', 
-          content: textContent 
+        yield {
+          type: "content",
+          content: textContent,
         };
       }
     }
 
     // Handle function calls if they exist
-    if (response && (response.functionCalls?.length > 0 || extractThoughtsAndFunctionCall(response).function_call)) {
+    if (
+      response &&
+      (response.functionCalls?.length > 0 ||
+        extractThoughtsAndFunctionCall(response).function_call)
+    ) {
       while (
         (response.functionCalls?.length > 0 ||
           extractThoughtsAndFunctionCall(response).function_call) &&
         safetyCounter < 5
       ) {
-        const { thoughts, function_call } = extractThoughtsAndFunctionCall(response);
-        const functionCallToExecute = function_call || (response.functionCalls && response.functionCalls[0]);
-
-
+        const { thoughts, function_call } =
+          extractThoughtsAndFunctionCall(response);
+        const functionCallToExecute =
+          function_call ||
+          (response.functionCalls && response.functionCalls[0]);
 
         if (functionCallToExecute) {
           const functionName = functionCallToExecute.name;
@@ -1721,10 +2053,15 @@ async function* handleUserQueryStreaming(chat, userMessageContent, userFiles = n
           lastFunctionResult = result;
 
           // Emit special event for image generation
-          if ((functionName === 'generateImage' || functionName === 'generateImageWithReference') && result && result.success) {
+          if (
+            (functionName === "generateImage" ||
+              functionName === "generateImageWithReference") &&
+            result &&
+            result.success
+          ) {
             yield {
-              type: 'image_generation',
-              result: result
+              type: "image_generation",
+              result: result,
             };
           }
 
@@ -1732,10 +2069,23 @@ async function* handleUserQueryStreaming(chat, userMessageContent, userFiles = n
             // Add the function call and response to the conversation history
             const updatedHistory = [
               ...conversationHistory,
-              { role: 'model', parts: [{ functionCall: functionCallToExecute }] },
-              { role: 'user', parts: [{ functionResponse: { name: functionName, response: { result } } }] }
+              {
+                role: "model",
+                parts: [{ functionCall: functionCallToExecute }],
+              },
+              {
+                role: "user",
+                parts: [
+                  {
+                    functionResponse: {
+                      name: functionName,
+                      response: { result },
+                    },
+                  },
+                ],
+              },
             ];
-            
+
             // Get the response after function call
             const functionResponse = await ai.models.generateContent({
               model: "gemini-2.5-flash",
@@ -1746,14 +2096,14 @@ async function* handleUserQueryStreaming(chat, userMessageContent, userFiles = n
                 toolConfig: chat.config?.toolConfig,
               },
             });
-            
+
             // Stream the function response
             const finalAnswer = extractAssistantText(functionResponse);
             if (finalAnswer) {
               yield* streamTextResponse(finalAnswer);
               return;
             }
-            
+
             response = functionResponse;
           } catch (error) {
             // If we have a function result but the LLM failed to respond, format it directly
@@ -1774,7 +2124,7 @@ async function* handleUserQueryStreaming(chat, userMessageContent, userFiles = n
 
         safetyCounter++;
       }
-      
+
       // If we executed function calls but didn't get a proper response, format the result directly
       if (safetyCounter > 0 && lastFunctionResult) {
         const finalAnswer = extractAssistantText(response || initialResponse);
@@ -1792,7 +2142,7 @@ async function* handleUserQueryStreaming(chat, userMessageContent, userFiles = n
 
     // If we already streamed chunks without function calls, we're done
     if (streamingChunks.length > 0) {
-      yield { type: 'done' };
+      yield { type: "done" };
       return;
     }
 
@@ -1808,11 +2158,11 @@ async function* handleUserQueryStreaming(chat, userMessageContent, userFiles = n
       );
       yield* streamTextResponse(formattedResult);
     } else {
-      yield* streamTextResponse("I apologize, but I couldn't process your request. Please try again.");
+      yield* streamTextResponse(
+        "I apologize, but I couldn't process your request. Please try again."
+      );
     }
-
   } catch (error) {
-    
     // Fallback to non-streaming approach
     try {
       response = await sendWithRetry(chat, userMessageContent, {
@@ -1820,15 +2170,15 @@ async function* handleUserQueryStreaming(chat, userMessageContent, userFiles = n
         initialDelayMs: 1000,
         backoffFactor: 2,
       });
-      
+
       const fallbackAnswer = extractAssistantText(response);
       if (fallbackAnswer) {
         yield* streamTextResponse(fallbackAnswer);
       } else {
-        yield { type: 'error', error: 'Processing error occurred' };
+        yield { type: "error", error: "Processing error occurred" };
       }
     } catch (fallbackError) {
-      yield { type: 'error', error: 'Failed to generate response' };
+      yield { type: "error", error: "Failed to generate response" };
     }
   }
 }
@@ -1837,28 +2187,28 @@ async function* handleUserQueryStreaming(chat, userMessageContent, userFiles = n
 async function* streamTextResponse(text) {
   // Split by words but preserve punctuation and spacing
   const tokens = text.match(/\S+\s*/g) || [];
-  
+
   for (let i = 0; i < tokens.length; i++) {
     const token = tokens[i];
-    
-    yield { 
-      type: 'content', 
-      content: token 
+
+    yield {
+      type: "content",
+      content: token,
     };
-    
+
     // Variable delay based on token type for more natural streaming
     let delay = 40; // Base delay
-    
+
     // Longer pause after punctuation
     if (token.match(/[.!?]\s*$/)) {
       delay = 120;
     } else if (token.match(/[,;:]\s*$/)) {
       delay = 80;
     }
-    
+
     // Add a small delay to simulate realistic streaming
-    await new Promise(resolve => setTimeout(resolve, delay));
+    await new Promise((resolve) => setTimeout(resolve, delay));
   }
-  
-  yield { type: 'done' };
+
+  yield { type: "done" };
 }
