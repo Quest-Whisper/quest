@@ -3,23 +3,133 @@
  */
 
 // Extract "sources" JSON block from message.content
-export function getSources(text) {
-  const match = text.match(/sources:\s*(\[[\s\S]*?\])/i);
-  if (!match) return [];
+export function getSources(content) {
+  if (!content) return [];
+
   try {
-    return JSON.parse(match[1]);
+    // Look for sources array at start of content
+    const match = content.match(/^sources:\s*(\[[\s\S]*?\])/);
+    if (!match) return [];
+
+    let jsonString = match[1];
+    
+    // Try to fix common JSON issues
+    jsonString = cleanJsonString(jsonString);
+
+    // Parse the JSON array
+    const sources = JSON.parse(jsonString);
+    return Array.isArray(sources) ? sources : [];
+  } catch (error) {
+    // Try alternative parsing strategies
+    return parseSourcesWithFallback(content);
+  }
+}
+
+// Helper function to clean up common JSON issues
+function cleanJsonString(jsonString) {
+  return jsonString
+    // Fix common escaping issues
+    .replace(/\\/g, '\\\\')  // Escape backslashes
+    .replace(/"/g, '"')      // Normalize quotes
+    .replace(/"/g, '"')      // Normalize quotes
+    // Fix double quotes at the end of strings
+    .replace(/""+/g, '"')
+    // Remove trailing commas
+    .replace(/,(\s*[}\]])/g, '$1')
+    // Fix missing commas between objects
+    .replace(/}\s*{/g, '}, {')
+    .trim();
+}
+
+// Fallback parser for when main JSON parsing fails
+function parseSourcesWithFallback(content) {
+  try {
+    // Try to extract individual source objects manually
+    const sources = [];
+    const sourcePattern = /"title":\s*"([^"]*)"[\s\S]*?"url":\s*"([^"]*)"/g;
+    let match;
+    
+    while ((match = sourcePattern.exec(content)) !== null) {
+      sources.push({
+        title: match[1],
+        url: match[2],
+        image: null,
+        displayLink: extractDisplayLink(match[2])
+      });
+    }
+    
+    return sources;
+  } catch (error) {
+    return [];
+  }
+}
+
+// Helper to extract display link from URL
+function extractDisplayLink(url) {
+  try {
+    const urlObj = new URL(url);
+    return urlObj.hostname.replace(/^www\./, '');
   } catch {
+    return url;
+  }
+}
+
+export function getImages(content) {
+  if (!content) return [];
+
+  try {
+    // Look for images array in the content
+    const match = content.match(/{\s*"images":\s*(\[[\s\S]*?\])\s*}/);
+    if (!match) return [];
+
+    let jsonString = match[1];
+    
+    // Try to fix common JSON issues
+    jsonString = cleanJsonString(jsonString);
+
+    // Parse the JSON array
+    const images = JSON.parse(jsonString);
+    return Array.isArray(images) ? images : [];
+  } catch (error) {
+    // Try alternative parsing strategies
+    return parseImagesWithFallback(content);
+  }
+}
+
+// Fallback parser for images when main JSON parsing fails
+function parseImagesWithFallback(content) {
+  try {
+    // Try to extract individual image objects manually
+    const images = [];
+    const imagePattern = /"url":\s*"([^"]*)"[\s\S]*?"title":\s*"([^"]*)"/g;
+    let match;
+    
+    while ((match = imagePattern.exec(content)) !== null) {
+      images.push({
+        url: match[1],
+        title: match[2],
+        thumbnail: match[1], // Use URL as thumbnail fallback
+        displayLink: extractDisplayLink(match[1])
+      });
+    }
+    
+    return images;
+  } catch (error) {
     return [];
   }
 }
 
 // Strip out "sources:[...]" and any prefixed labels
-export function removeSources(text) {
-  let t = text
-    .replace(/AI FINAL USER RESPONSE:\s*/i, "")
-    .replace(/sources:\s*\[[\s\S]*?\]\s*/gi, "")
-    .replace(/\n{2,}/g, "\n");
-  return t.trim();
+export function removeSources(content) {
+  if (!content) return '';
+  
+  // Remove sources array from start if present
+  return content.replace(/^sources:\s*\[[\s\S]*?\]\s*\n*/, '')
+    // Remove any image JSON objects
+    .replace(/{\s*"images":\s*\[[\s\S]*?\]\s*}/g, '')
+    // Clean up any double newlines left behind
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 // Strip markdown formatting for TTS and plain text purposes

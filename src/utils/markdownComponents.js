@@ -24,6 +24,21 @@ export const markdownComponents = {
     return <p className="mb-6 text-slate-700 leading-relaxed">{children}</p>;
   },
 
+  // Link component with modern styling
+  a: ({ node, children, href, ...props }) => {
+    return (
+      <a
+        href={href}
+        className="text-blue-600 mx-[5px] font-medium decoration-blue-300 underline-offset-2 decoration-[0.1em] hover:decoration-[0.15em] hover:text-blue-700 transition-all duration-200"
+        target="_blank"
+        rel="noopener noreferrer"
+        {...props}
+      >
+        {children}
+      </a>
+    );
+  },
+
   // Only handle fenced code blocks, ignore inline code
   code: ({ inline, children, className }) => {
     // If it's inline code, treat it as regular text by returning just the content
@@ -80,7 +95,7 @@ export const markdownComponents = {
     </h2>
   ),
   h3: ({ children }) => (
-    <h3 className="text-lg font-bold mb-4 text-slate-700 leading-tight">
+    <h3 className="text-[14px] font-bold mb-4 text-slate-700 leading-tight">
       {children}
     </h3>
   ),

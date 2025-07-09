@@ -388,7 +388,12 @@ export default function ChatInput({ onSend, isLoading, onVoiceMode }) {
                 className="relative group cursor-pointer"
               >
                 <div className="flex h-[32px] w-[32px] border border-[#CCD6DD] p-[6px] rounded-full bg-[#E1E8ED] hover:bg-[#CCD6DD] justify-center disabled:opacity-50 disabled:cursor-not-allowed">
-                  <PaperClipIcon className="w-4 h-4 text-gray-600" />
+                <Image
+                    src="/icons/clip_icon.png"
+                    alt="attachments icon"
+                    width={16}
+                    height={16}
+                  />
                 </div>
                 {filePreviews.length > 0 && (
                   <div className="absolute -top-1 -right-1 w-5 h-5 bg-blue-500 text-white text-xs rounded-full flex items-center justify-center">
@@ -405,7 +410,7 @@ export default function ChatInput({ onSend, isLoading, onVoiceMode }) {
               >
                 <div className="flex h-[32px] w-[32px] border border-[#CCD6DD] p-[6px] rounded-full bg-[#E1E8ED] hover:bg-[#CCD6DD] justify-center">
                   <Image
-                    src="/icons/waveform_lcon.png"
+                    src="/icons/waveform_icon.png"
                     alt="waveform icon"
                     width={16}
                     height={16}

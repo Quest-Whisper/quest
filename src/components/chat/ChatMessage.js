@@ -10,7 +10,8 @@ import React from "react";
 // Import utilities and components
 import { 
   getSources, 
-  removeSources, 
+  removeSources,
+  getImages,
   getMessageTypeFlags 
 } from "../../utils/messageUtils";
 import { markdownComponents } from "../../utils/markdownComponents";
@@ -22,6 +23,56 @@ import AttachedImage from "./AttachedImage";
 import UserAttachments from "./UserAttachments";
 import ActionButtons from "./ActionButtons";
 import Sources from "./Sources";
+import ImageSlideshow from "./ImageSlideshow";
+
+// New SearchResultImages component
+const SearchResultImages = ({ images }) => {
+  const [slideshowOpen, setSlideshowOpen] = useState(false);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [clickPosition, setClickPosition] = useState({ x: 0, y: 0 });
+
+  if (!images || images.length === 0) return null;
+
+  const handleImageClick = (index, event) => {
+    const rect = event.target.getBoundingClientRect();
+    setClickPosition({
+      x: rect.left + (rect.width / 2) - (window.innerWidth / 2),
+      y: rect.top + (rect.height / 2) - (window.innerHeight / 2)
+    });
+    setSelectedImageIndex(index);
+    setSlideshowOpen(true);
+  };
+
+  return (
+    <>
+      <div className="flex flex-row md:grid md:grid-cols-4 md:items-center overflow-x-scroll gap-4 mb-4 w-full">
+        {images.map((image, index) => (
+          <div key={index} className="flex-shrink-0">
+            <button 
+              onClick={(e) => handleImageClick(index, e)}
+              className="block overflow-hidden rounded-lg border-gray-400 bg-gray-100 w-[150px] md:w-[100%] cursor-pointer hover:opacity-90 transition-opacity"
+            >
+              <img
+                src={image.url}
+                alt={image.title}
+                className="w-[100%] h-[120px] object-cover"
+                loading="lazy"
+              />
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <ImageSlideshow
+        images={images}
+        startIndex={selectedImageIndex}
+        isOpen={slideshowOpen}
+        onClose={() => setSlideshowOpen(false)}
+        clickPosition={clickPosition}
+      />
+    </>
+  );
+};
 
 export default function ChatMessage({
   message,
@@ -31,8 +82,10 @@ export default function ChatMessage({
   onChatUpdate,
 }) {
   const [parsedSources, setParsedSources] = useState([]);
+  const [parsedImages, setParsedImages] = useState([]);
   const [isHovered, setIsHovered] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showMetadata, setShowMetadata] = useState(false);
 
   // Use custom hooks
   const audio = useAudio();
@@ -57,14 +110,30 @@ export default function ChatMessage({
     onChatUpdate
   );
 
-  // Determine sources
+  // Determine sources and images
   const sources = message.sources?.length ? message.sources : parsedSources;
-  const hasSources = !isUser && sources.length > 0;
+  const images = message.images?.length ? message.images : parsedImages;
+  const hasSources = !isUser && sources.length > 0 && (!isStreaming || showMetadata);
+  const hasImages = !isUser && images.length > 0 && (!isStreaming || showMetadata);
 
-  // Parse sources from message content
+  // Parse sources and images from message content
   useEffect(() => {
-    setParsedSources(getSources(message.content || ""));
-  }, [message.content]);
+    if (message.content) {
+      // Check if this is a metadata update
+      if (message.isMetadata) {
+        setShowMetadata(true);
+      }
+      setParsedSources(getSources(message.content));
+      setParsedImages(getImages(message.content));
+    }
+  }, [message.content, message.isMetadata]);
+
+  // Reset metadata flag when streaming starts
+  useEffect(() => {
+    if (isStreaming) {
+      setShowMetadata(false);
+    }
+  }, [isStreaming]);
 
   // Handle retry for the specific error message
   const handleRetry = useCallback(() => {
@@ -140,6 +209,11 @@ export default function ChatMessage({
               transition={{ duration: 0.2 }}
               layout={!isStreaming} // Disable layout animation during streaming
             >
+              {/* Display search result images */}
+              {hasImages && (
+                <SearchResultImages images={images} />
+              )}
+
               {/* Display generated image */}
               {isImageGeneration && (
                 <GeneratedImage

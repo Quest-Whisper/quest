@@ -39,10 +39,12 @@ function Chat() {
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  // Auto-scroll to bottom when new messages arrive
+  // Modified auto-scroll to trigger on mount and for all messages
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  });
+    if (messages.length > 0 && messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView();
+    }
+  }, [messages]);
 
   // Load chat history on mount
   useEffect(() => {

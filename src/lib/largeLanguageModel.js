@@ -84,6 +84,48 @@ const mcpTools = [
     },
   },
   {
+    name: "googleImageSearch",
+    description: "Use this tool to search for images using Google's image search capabilities",
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        query: { type: "STRING", description: "Search query for images" },
+        num: { type: "NUMBER", description: "Number of images to return (1-10)" },
+        page: { type: "NUMBER", description: "Page number (1-based)" },
+        imageSize: { 
+          type: "STRING", 
+          description: "Filter by image size (e.g., 'large', 'medium', 'icon')" 
+        },
+        imageType: { 
+          type: "STRING", 
+          description: "Filter by image type (e.g., 'face', 'photo', 'clipart', 'lineart')" 
+        },
+        imageColor: { 
+          type: "STRING", 
+          description: "Filter by predominant color (e.g., 'red', 'blue', 'green', 'black', 'white')" 
+        },
+        safe: { 
+          type: "STRING", 
+          description: "Safe search setting ('active' or 'off')" 
+        }
+      },
+      required: ["query"],
+    },
+    execute: async (params) => {
+      requireParams(params, "query");
+      const { data } = await axios.post(
+        `${GOOGLE_SEARCH_MCP_SERVER}/image-search`,
+        params,
+        {
+          headers: {
+            "x-api-key": QUICK_WHISPER_MCP_API_KEY,
+          },
+        }
+      );
+      return data;
+    },
+  },
+  {
     name: "extractWebpageContent",
     description:
       "Use this tool to extract and analyze content from a webpage, converting it to readable text",
@@ -1248,7 +1290,7 @@ export async function executeMcpTool(name, args) {
   const tool = mcpTools.find((t) => t.name === name);
   if (!tool) throw new Error(`No tool named ${name}`);
 
-  console.log("TOOL CALLED : " + tool);
+  console.log("TOOL CALLED : " + JSON.stringify(args) );
 
   return tool.execute(args);
 }
@@ -1442,6 +1484,7 @@ async function handleUserQuery(chat, userMessageContent, userFiles = null) {
         }
 
         const result = await executeMcpTool(functionName, args);
+        
         lastFunctionResult = result;
 
         // Use the correct format for Gemini API function response
@@ -1525,11 +1568,34 @@ function formatFunctionResultsDirectly(functionName, result, userQuery) {
     if (functionName === "googleSearch") {
       // Format google search results
       if (result.results && result.results.length > 0) {
-        // Generic search result formatting
-        let response = `Here's what I found in my search:\n\n`;
-        result.results.slice(0, 3).forEach((item, index) => {
-          response += `${index + 1}. ${item.title}\n${item.snippet}\n\n`;
-        });
+        const sources = result.results.map(item => ({
+          title: item.title,
+          url: item.link,
+          snippet: item.snippet,
+          image: item.pagemap?.cse_image?.[0]?.src || null
+        }));
+
+        // Return structured data for the LLM to process
+        return {
+          sources: sources
+        };
+      }
+    } else if (functionName === "googleImageSearch") {
+      // Format google image search results
+      if (result.images && result.images.length > 0) {
+        const images = result.images.map(item => ({
+          url: item.image.url,
+          title: item.title,
+          thumbnail: item.image.thumbnailLink || item.image.url,
+          context: item.context
+        }));
+
+        // Let the LLM handle the natural conversation
+        const response = {
+          images: images
+        };
+
+        // Add the response to the conversation for the LLM to process
         return response;
       }
     } else if (functionName === "extractWebpageContent") {
@@ -2185,9 +2251,38 @@ async function* handleUserQueryStreaming(
 
 // Improved helper function to stream text response in chunks
 async function* streamTextResponse(text) {
-  // Split by words but preserve punctuation and spacing
-  const tokens = text.match(/\S+\s*/g) || [];
+  // First, extract any sources or images data
+  const sourcesMatch = text.match(/^sources:\s*(\[[\s\S]*?\])\s*\n*/);
+  const imagesMatch = text.match(/{\s*"images":\s*\[[\s\S]*?\]\s*}/g);
+  
+  // Remove metadata from the text
+  let cleanText = text
+    .replace(/^sources:\s*\[[\s\S]*?\]\s*\n*/, '') // Remove sources
+    .replace(/{\s*"images":\s*\[[\s\S]*?\]\s*}/g, '') // Remove images
+    .replace(/\n{3,}/g, '\n\n') // Clean up extra newlines
+    .trim();
 
+  // Remove duplicate text that might appear after the metadata
+  if (sourcesMatch) {
+    const contentAfterSources = text.substring(sourcesMatch[0].length).trim();
+    if (cleanText.includes(contentAfterSources)) {
+      cleanText = contentAfterSources;
+    }
+  }
+
+  // Split by words but preserve punctuation and spacing
+  const tokens = cleanText.match(/\S+\s*/g) || [];
+
+  // If we have sources, send them first with proper formatting
+  if (sourcesMatch) {
+    yield {
+      type: "content",
+      content: sourcesMatch[0] + "\n\n",
+      isMetadata: true
+    };
+  }
+
+  // Stream the main content
   for (let i = 0; i < tokens.length; i++) {
     const token = tokens[i];
 
@@ -2208,6 +2303,15 @@ async function* streamTextResponse(text) {
 
     // Add a small delay to simulate realistic streaming
     await new Promise((resolve) => setTimeout(resolve, delay));
+  }
+
+  // After streaming is complete, send any remaining metadata
+  if (imagesMatch) {
+    yield {
+      type: "content",
+      content: "\n\n" + imagesMatch.join('\n'),
+      isMetadata: true
+    };
   }
 
   yield { type: "done" };
