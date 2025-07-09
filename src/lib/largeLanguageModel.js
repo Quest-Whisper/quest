@@ -1,6 +1,7 @@
-import { GoogleGenAI, FunctionCallingConfigMode, Type } from "@google/genai";
+import { GoogleGenAI, FunctionCallingConfigMode, Type, Modality } from "@google/genai";
 import axios from "axios";
 import { AXE_AI_SYSTEM_PROMPT } from "./axe-ai-system-prompt.js";
+import { uploadGeneratedImageToFirebase } from "./firebase.js";
 
 ////////////////////////////////////////////////////////////////////////////////
 // UTILITY FUNCTIONS
@@ -539,6 +540,358 @@ const mcpTools = [
   
       return data;
     }
+  },
+  {
+    name: "generateImage",
+    description: "Use this tool to generate images using Imagen 4.0. The generated image will be saved to Firebase storage.",
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        prompt: { type: "STRING", description: "Detailed description of the image to generate" },
+        userId: { type: "STRING", description: "User ID for storing the generated image" },
+        userName: { type: "STRING", description: "User's name for context" },
+        userEmail: { type: "STRING", description: "User's email for context" }
+      },
+      required: ["prompt", "userId"]
+    },
+    execute: async (params) => {
+      requireParams(params, "prompt", "userId");
+
+      try {
+        // Initialize the Imagen model using the same API key
+        const genAI = new GoogleGenAI(GEMINI_API_KEY);
+
+        // Generate the image using the correct API format
+        const response = await genAI.models.generateImages({
+          model: "imagen-4.0-generate-preview-06-06",
+          prompt: params.prompt,
+          config: {
+            numberOfImages: 1,
+          }
+        });
+
+        // Validate response structure
+        if (!response) {
+          throw new Error('No response received from image generation API');
+        }
+
+        if (!response.generatedImages || !Array.isArray(response.generatedImages) || response.generatedImages.length === 0) {
+          throw new Error('No generated images found in API response');
+        }
+
+        const firstImage = response.generatedImages[0];
+        if (!firstImage) {
+          throw new Error('First generated image is undefined');
+        }
+
+        // Check different possible response structures
+        let imageBytes;
+        if (firstImage.image && firstImage.image.imageBytes) {
+          // Original expected structure
+          imageBytes = firstImage.image.imageBytes;
+        } else if (firstImage.imageBytes) {
+          // Alternative structure - image data directly on the object
+          imageBytes = firstImage.imageBytes;
+        } else if (firstImage.data) {
+          // Another possible structure
+          imageBytes = firstImage.data;
+        } else {
+          throw new Error('Could not find image data in the expected format');
+        }
+
+        if (!imageBytes) {
+          throw new Error('Image bytes are empty or undefined');
+        }
+        
+        // Convert base64 to buffer for Firebase upload
+        const buffer = Buffer.from(imageBytes, 'base64');
+
+        // Generate a unique filename
+        const timestamp = Date.now();
+        const sanitizedPrompt = params.prompt.slice(0, 50).replace(/[^a-zA-Z0-9]/g, '_');
+        const filename = `${timestamp}_${sanitizedPrompt}.png`;
+        const filePath = `${params.userId}/generated_images/${filename}`;
+
+        // Upload to Firebase and get direct URL string
+        const imageUrl = await uploadGeneratedImageToFirebase(
+          buffer,
+          filePath,
+          'image/png'
+        );
+
+        // Return a properly structured response
+        return {
+          success: true,
+          url: imageUrl,
+          type: "image/png",
+          displayName: `Generated: ${params.prompt.slice(0, 50)}...png`,
+          size: buffer.length,
+          category: "image",
+          isGenerated: true,
+          prompt: params.prompt,
+          description: params.prompt
+        };
+
+      } catch (error) {
+        
+        // Provide more specific error messages based on the error type
+        if (error.message.includes('No response received') || 
+            error.message.includes('No generated images found') ||
+            error.message.includes('Could not find image data')) {
+          throw new Error(`Image generation API error: ${error.message}. Please try again.`);
+        } else if (error.message.includes('Invalid response structure')) {
+          throw new Error('The image generation service returned an unexpected response format. Please try again.');
+        } else if (error.name === 'TypeError' && error.message.includes('Cannot read properties')) {
+          throw new Error('Image generation failed due to API response format changes. Please try again.');
+        } else {
+          throw new Error(`Failed to generate image: ${error.message}`);
+        }
+      }
+    }
+  },
+  {
+    name: "generateImageWithReference",
+    description: "Use this tool to generate images using Gemini 2.0 Flash with an uploaded image as reference. The generated image will be saved to Firebase storage. This tool should be used when the user has uploaded an image and wants to generate a new image based on it.",
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        prompt: { type: "STRING", description: "Detailed description of the image to generate based on the reference image" },
+        referenceImageUrl: { type: "STRING", description: "URL of the uploaded reference image from Firebase Storage" },
+        referenceImageMimeType: { type: "STRING", description: "MIME type of the reference image (e.g., 'image/jpeg', 'image/png')" },
+        userId: { type: "STRING", description: "User ID for storing the generated image" },
+        userName: { type: "STRING", description: "User's name for context" },
+        userEmail: { type: "STRING", description: "User's email for context" }
+      },
+      required: ["prompt", "referenceImageUrl", "referenceImageMimeType", "userId"]
+    },
+    execute: async (params) => {
+      requireParams(params, "prompt", "referenceImageUrl", "referenceImageMimeType", "userId");
+
+      try {
+        // Initialize the Gemini 2.0 Flash model for image generation with reference
+        const genAI = new GoogleGenAI(GEMINI_API_KEY);
+
+        // Fetch the reference image from Firebase Storage
+        const imageResponse = await fetch(params.referenceImageUrl);
+        if (!imageResponse.ok) {
+          throw new Error(`Failed to fetch reference image: ${imageResponse.statusText}`);
+        }
+        
+        const imageBuffer = await imageResponse.arrayBuffer();
+        const base64Image = Buffer.from(imageBuffer).toString('base64');
+
+        // Prepare the content parts for the model
+        const contents = [
+          { text: params.prompt },
+          {
+            inlineData: {
+              mimeType: params.referenceImageMimeType,
+              data: base64Image,
+            },
+          },
+        ];
+
+        // Generate the image using Gemini 2.0 Flash with image generation and reference
+        const response = await genAI.models.generateContent({
+          model: "gemini-2.0-flash-preview-image-generation",
+          contents: contents,
+          config: {
+            responseModalities: [Modality.TEXT, Modality.IMAGE],
+          },
+        });
+
+        // Validate response structure
+        if (!response || !response.candidates || response.candidates.length === 0) {
+          throw new Error('No response received from image generation API');
+        }
+
+        const candidate = response.candidates[0];
+        if (!candidate || !candidate.content || !candidate.content.parts) {
+          throw new Error('Invalid response structure from image generation API');
+        }
+
+        // Find the generated image in the response parts
+        let generatedImageData = null;
+        let responseText = "";
+
+        for (const part of candidate.content.parts) {
+          if (part.text) {
+            responseText += part.text;
+          } else if (part.inlineData && part.inlineData.data) {
+            generatedImageData = part.inlineData.data;
+          }
+        }
+
+        if (!generatedImageData) {
+          throw new Error('No generated image found in API response');
+        }
+
+        // Convert base64 to buffer for Firebase upload
+        const buffer = Buffer.from(generatedImageData, 'base64');
+
+        // Generate a unique filename
+        const timestamp = Date.now();
+        const sanitizedPrompt = params.prompt.slice(0, 50).replace(/[^a-zA-Z0-9]/g, '_');
+        const filename = `${timestamp}_ref_${sanitizedPrompt}.png`;
+        const filePath = `${params.userId}/generated_images/${filename}`;
+
+        // Upload to Firebase and get direct URL string
+        const imageUrl = await uploadGeneratedImageToFirebase(
+          buffer,
+          filePath,
+          'image/png'
+        );
+
+        // Return a properly structured response
+        return {
+          success: true,
+          url: imageUrl,
+          type: "image/png",
+          displayName: `Generated with reference: ${params.prompt.slice(0, 50)}...png`,
+          size: buffer.length,
+          category: "image",
+          isGenerated: true,
+          isGeneratedWithReference: true,
+          prompt: params.prompt,
+          referenceImageUrl: params.referenceImageUrl,
+          description: `Generated image with reference: ${params.prompt}`,
+          responseText: responseText || "Image generated successfully with reference"
+        };
+
+      } catch (error) {
+        console.error('Error in generateImageWithReference:', error);
+        
+        // Provide more specific error messages based on the error type
+        if (error.message.includes('Failed to fetch reference image')) {
+          throw new Error(`Could not access the reference image: ${error.message}. Please ensure the image is properly uploaded.`);
+        } else if (error.message.includes('No response received') || 
+                   error.message.includes('No generated image found')) {
+          throw new Error(`Image generation API error: ${error.message}. Please try again with a different prompt or reference image.`);
+        } else if (error.message.includes('Invalid response structure')) {
+          throw new Error('The image generation service returned an unexpected response format. Please try again.');
+        } else {
+          throw new Error(`Failed to generate image with reference: ${error.message}`);
+        }
+      }
+    }
+  },
+  {
+    name: "getRecentGeneratedImages",
+    description: "Use this tool to retrieve the last 5 generated images for a user from their current chat session. This allows you to reference or modify previously generated images in the conversation.",
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        userId: { type: "STRING", description: "User ID to find their recent generated images" },
+        userName: { type: "STRING", description: "User's name for context" },
+        limit: { type: "NUMBER", description: "Number of recent images to retrieve (default: 5, max: 10)" }
+      },
+      required: ["userId"]
+    },
+    execute: async (params) => {
+      requireParams(params, "userId");
+      
+      const limit = Math.min(params.limit || 5, 10); // Default 5, max 10
+
+      try {
+        // Import Firebase client functions
+        const { initializeApp } = await import('firebase/app');
+        const { getStorage, ref, listAll, getDownloadURL, getMetadata } = await import('firebase/storage');
+        
+        // Initialize Firebase client
+        const firebaseConfig = {
+          apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+          authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+          projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+          storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+          messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+          appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const storage = getStorage(app);
+        
+        const folderPath = `${params.userId}/generated_images/`;
+        const folderRef = ref(storage, folderPath);
+        
+        // List all files in the user's generated images folder
+        const listResult = await listAll(folderRef);
+        const files = listResult.items;
+
+        if (files.length === 0) {
+          throw new Error('No generated images found for this user');
+        }
+
+        // Sort files by creation time (newest first)
+        // The filename contains timestamp, so we can sort by name
+        const sortedFiles = files.sort((a, b) => {
+          const aTime = a.name.split('_')[0];
+          const bTime = b.name.split('_')[0];
+          return parseInt(bTime) - parseInt(aTime);
+        });
+
+        // Get the most recent images (up to limit)
+        const recentFiles = sortedFiles.slice(0, limit);
+        
+        // Process each file to get URLs and metadata
+        const imagePromises = recentFiles.map(async (file) => {
+          try {
+            // Get the download URL
+            const url = await getDownloadURL(file);
+
+            // Extract metadata from filename
+            const filename = file.name;
+            const timestamp = filename.split('_')[0];
+            const promptPart = filename.split('_').slice(1).join('_').replace('.png', '');
+            
+            // Get file metadata
+            const metadata = await getMetadata(file);
+            
+            return {
+              success: true,
+              url: url,
+              type: "image/png",
+              displayName: `Generated: ${promptPart}...png`,
+              size: parseInt(metadata.size),
+              category: "image",
+              isGenerated: true,
+              timestamp: parseInt(timestamp),
+              createdAt: new Date(parseInt(timestamp)).toISOString(),
+              description: `Generated image from ${new Date(parseInt(timestamp)).toLocaleString()}`,
+              prompt: promptPart.replace(/_/g, ' '), // Convert underscores back to spaces for readability
+              filename: filename
+            };
+          } catch (fileError) {
+            console.error(`Error processing file ${file.name}:`, fileError);
+            return null; // Skip files that can't be processed
+          }
+        });
+
+        const images = await Promise.all(imagePromises);
+        const validImages = images.filter(img => img !== null);
+        
+        if (validImages.length === 0) {
+          throw new Error('No valid generated images could be retrieved');
+        }
+
+        return {
+          success: true,
+          images: validImages,
+          count: validImages.length,
+          totalFound: files.length,
+          description: `Retrieved ${validImages.length} most recent generated images`
+        };
+
+      } catch (error) {
+        
+        if (error.message.includes('No generated images found')) {
+          throw new Error('No previously generated images found for this user.');
+        } else if (error.message.includes('No valid generated images')) {
+          throw new Error('Found generated images but could not retrieve their data.');
+        } else {
+          throw new Error(`Failed to retrieve recent generated images: ${error.message}`);
+        }
+      }
+    }
   }
   
 ];
@@ -596,7 +949,7 @@ async function ensurePrefetched() {
 // CORE HELPERS
 ////////////////////////////////////////////////////////////////////////////////
 
-async function executeMcpTool(name, args) {
+export async function executeMcpTool(name, args) {
   const tool = mcpTools.find((t) => t.name === name);
   if (!tool) throw new Error(`No tool named ${name}`);
   return tool.execute(args);
@@ -733,9 +1086,7 @@ async function sendWithRetry(
         // not retryable or out of attempts → rethrow
         throw err;
       }
-      console.warn(
-        `sendMessage got 500 on attempt ${attempt}, retrying in ${delay}ms…`
-      );
+      // Retry on 500 error
       await sleep(delay);
       delay *= backoffFactor;
     }
@@ -743,7 +1094,6 @@ async function sendWithRetry(
 }
 
 async function handleUserQuery(chat, userMessageContent, userFiles = null) {
-  console.log("USER MESSAGE:", userMessageContent);
   let response;
   let safetyCounter = 0;
   let lastFunctionResult = null;
@@ -757,10 +1107,9 @@ async function handleUserQuery(chat, userMessageContent, userFiles = null) {
     });
   } catch (error) {
     response = await chat.sendMessage({ message: "Please try again" });
-    console.log("LLM ERROR : " + error);
   }
 
-  console.log("RAW LLM RESPONSE:", JSON.stringify(response));
+
 
   try {
     // Extract function calls from Gemini response format
@@ -777,16 +1126,9 @@ async function handleUserQuery(chat, userMessageContent, userFiles = null) {
       const functionCallToExecute =
         function_call || (response.functionCalls && response.functionCalls[0]);
 
-      if (thoughts) {
-        console.log("AI THOUGHTS:", thoughts);
-      }
+
 
       if (functionCallToExecute) {
-        console.log(
-          "AI FUNCTION CALL:",
-          JSON.stringify(functionCallToExecute, null, 2)
-        );
-
         const functionName = functionCallToExecute.name;
         lastFunctionName = functionName;
 
@@ -805,19 +1147,10 @@ async function handleUserQuery(chat, userMessageContent, userFiles = null) {
           args = {};
         }
 
-        if (args && args.pipeline && Array.isArray(args.pipeline)) {
-          console.log("AI AGGREGATE PIPELINE:");
-          args.pipeline.forEach((stage, idx) => {
-            console.log(`  Stage ${idx + 1}:`, JSON.stringify(stage, null, 2));
-          });
-        }
+
 
         const result = await executeMcpTool(functionName, args);
         lastFunctionResult = result;
-        console.log(
-          "AI FUNCTION CALL RESULT:",
-          JSON.stringify(result, null, 2)
-        );
 
         // Use the correct format for Gemini API function response
         try {
@@ -830,7 +1163,6 @@ async function handleUserQuery(chat, userMessageContent, userFiles = null) {
             },
           });
         } catch (error) {
-          console.log("Error in function response: " + error);
           // If we get an error here, we'll break the loop and use our fallback formatter
           break;
         }
@@ -842,17 +1174,10 @@ async function handleUserQuery(chat, userMessageContent, userFiles = null) {
       safetyCounter++;
     }
   } catch (error) {
-    console.log("Error : " + error);
-  }
-
-  // Log final thoughts (if any)
-  const { thoughts: finalThoughts } = extractThoughtsAndFunctionCall(response);
-  if (finalThoughts) {
-    console.log("AI FINAL THOUGHTS:", finalThoughts);
+    // Continue with response processing
   }
 
   const finalAnswer = extractAssistantText(response);
-  console.log("AI FINAL USER RESPONSE:", finalAnswer);
 
   // If we still don't have a response, try to construct one from the results
   if (!finalAnswer && safetyCounter > 0) {
@@ -878,7 +1203,6 @@ async function handleUserQuery(chat, userMessageContent, userFiles = null) {
 
       return "I've analyzed your data, but I'm having trouble formatting the response. Please try your question again.";
     } catch (error) {
-      console.error("Error in final formatting attempt:", error);
 
       // Try to format the results directly if we have them
       if (lastFunctionResult) {
@@ -968,6 +1292,20 @@ function formatFunctionResultsDirectly(functionName, result, userQuery) {
           2
         )}`;
       }
+    } else if (functionName === "generateImage") {
+      // Format image generation result
+      if (result && result.success && result.url) {
+        return `Perfect! I've generated an image for you based on your prompt: "${result.prompt}"\n\nThe image has been created and is ready to view. Would you like me to generate another image or make any modifications to this one?`;
+      } else if (result && !result.success) {
+        return `I encountered an issue while generating the image. Please try again with a different prompt.`;
+      }
+    } else if (functionName === "generateImageWithReference") {
+      // Format image generation with reference result
+      if (result && result.success && result.url) {
+        return `Perfect! I've generated an image for you using your reference image and the prompt: "${result.prompt}"\n\n${result.responseText}\n\nThe image has been created and is ready to view. Would you like me to generate another image or make any modifications to this one?`;
+      } else if (result && !result.success) {
+        return `I encountered an issue while generating the image with your reference. Please try again with a different prompt or reference image.`;
+      }
     }
 
     // Default formatting for other function types
@@ -977,7 +1315,6 @@ function formatFunctionResultsDirectly(functionName, result, userQuery) {
       resultStr.length > 500 ? resultStr.substring(0, 500) + "..." : resultStr;
     return `I found information related to your query: ${truncatedResult}`;
   } catch (error) {
-    console.error("Error in direct formatting:", error);
     return "I found information related to your query, but encountered an error while formatting the response. Please try asking in a different way.";
   }
 }
@@ -1074,6 +1411,23 @@ Name: ${session.user.name}
 `;
   }
 
+  // Add current message attachments to context
+  let attachmentContext = "";
+  if (userMessage.attachments && Array.isArray(userMessage.attachments)) {
+    attachmentContext = `
+
+CURRENT MESSAGE ATTACHMENTS:
+${userMessage.attachments.map((attachment, index) => 
+  `${index + 1}. ${attachment.displayName} (${attachment.category})
+   - URL: ${attachment.url}
+   - Type: ${attachment.type}
+   - Size: ${attachment.size} bytes`
+).join('\n')}
+
+When using generateImageWithReference, use the URL and type from the attachments above.
+`;
+  }
+
   const pastMessagesWithoutDefault = pastMessages.slice(1);
 
   // ——— transform into the Content[] shape ———
@@ -1081,33 +1435,33 @@ Name: ${session.user.name}
     const parts = [{ text: msg.content }];
     
     // Add files if present
-    if (msg.files && Array.isArray(msg.files)) {
-      for (const file of msg.files) {
-        if (file && file.uri) {
+    if (msg.attachments && Array.isArray(msg.attachments)) {
+      for (const file of msg.attachments) {
+        if (file && file.url) {
           try {
-            if (file.type === 'image') {
+            if (file.category === 'image') {
               // Fetch the image from Firebase Storage and convert to base64
-              const response = await fetch(file.uri);
+              const response = await fetch(file.url);
               const arrayBuffer = await response.arrayBuffer();
               const base64Data = Buffer.from(arrayBuffer).toString('base64');
               
               parts.push({
                 inlineData: {
-                  mimeType: file.mimeType,
+                  mimeType: file.type,
                   data: base64Data,
                 }
               });
-            } else if (file.type === 'gemini') {
+            } else if (file.geminiFile) {
               // Use Gemini File API URI directly
               parts.push({
                 fileData: {
-                  mimeType: file.mimeType,
-                  fileUri: file.uri
+                  mimeType: file.type,
+                  fileUri: file.geminiFile.uri
                 }
               });
             }
           } catch (error) {
-            console.error('Error processing file for history:', error);
+            console.error('Error processing file in generateChatCompletion:', error);
             // Continue without this file if processing fails
           }
         }
@@ -1122,15 +1476,13 @@ Name: ${session.user.name}
 
   //const historyWithAiLast = history.slice(0, -1);
 
-  console.log("History: " + JSON.stringify(history));
-
   const chat = ai.chats.create({
     model: "gemini-2.5-flash",
     config: {
       // your system prompt goes here
       systemInstruction: AXE_AI_SYSTEM_PROMPT.replace(
         "%USERDETAILS%",
-        userDetails
+        userDetails + attachmentContext
       ).replace("%DATEDETAILS%", now),
 
       tools: [{ functionDeclarations: mcpTools }],
@@ -1141,7 +1493,7 @@ Name: ${session.user.name}
     history,
   });
 
-  return await handleUserQuery(chat, userMessage.content, userMessage.files);
+  return await handleUserQuery(chat, userMessage.content, userMessage.attachments);
 }
 
 // New streaming function
@@ -1158,6 +1510,23 @@ Name: ${session.user.name}
 `;
   }
 
+  // Add current message attachments to context
+  let attachmentContext = "";
+  if (userMessage.attachments && Array.isArray(userMessage.attachments)) {
+    attachmentContext = `
+
+CURRENT MESSAGE ATTACHMENTS:
+${userMessage.attachments.map((attachment, index) => 
+  `${index + 1}. ${attachment.displayName} (${attachment.category})
+   - URL: ${attachment.url}
+   - Type: ${attachment.type}
+   - Size: ${attachment.size} bytes`
+).join('\n')}
+
+When using generateImageWithReference, use the URL and type from the attachments above.
+`;
+  }
+
   const pastMessagesWithoutDefault = pastMessages.slice(1);
 
   // Transform into the Content[] shape
@@ -1165,33 +1534,33 @@ Name: ${session.user.name}
     const parts = [{ text: msg.content }];
     
     // Add files if present
-    if (msg.files && Array.isArray(msg.files)) {
-      for (const file of msg.files) {
-        if (file && file.uri) {
+    if (msg.attachments && Array.isArray(msg.attachments)) {
+      for (const file of msg.attachments) {
+        if (file && file.url) {
           try {
-            if (file.type === 'image') {
+            if (file.category === 'image') {
               // Fetch the image from Firebase Storage and convert to base64
-              const response = await fetch(file.uri);
+              const response = await fetch(file.url);
               const arrayBuffer = await response.arrayBuffer();
               const base64Data = Buffer.from(arrayBuffer).toString('base64');
               
               parts.push({
                 inlineData: {
-                  mimeType: file.mimeType,
+                  mimeType: file.type,
                   data: base64Data,
                 }
               });
-            } else if (file.type === 'gemini') {
+            } else if (file.geminiFile) {
               // Use Gemini File API URI directly
               parts.push({
                 fileData: {
-                  mimeType: file.mimeType,
-                  fileUri: file.uri
+                  mimeType: file.type,
+                  fileUri: file.geminiFile.uri
                 }
               });
             }
           } catch (error) {
-            console.error('Error processing file for streaming history:', error);
+            console.error('Error processing file in generateChatCompletionStreaming:', error);
             // Continue without this file if processing fails
           }
         }
@@ -1204,14 +1573,14 @@ Name: ${session.user.name}
     };
   }));
 
-  console.log("Streaming History: " + JSON.stringify(history));
+
 
   const chat = ai.chats.create({
     model: "gemini-2.5-flash",
     config: {
       systemInstruction: AXE_AI_SYSTEM_PROMPT.replace(
         "%USERDETAILS%",
-        userDetails
+        userDetails + attachmentContext
       ).replace("%DATEDETAILS%", now),
 
       tools: [{ functionDeclarations: mcpTools }],
@@ -1223,16 +1592,14 @@ Name: ${session.user.name}
   });
 
   try {
-    yield* handleUserQueryStreaming(chat, userMessage.content, userMessage.files);
+    yield* handleUserQueryStreaming(chat, userMessage.content, userMessage.attachments);
   } catch (error) {
-    console.error("Error in streaming generation:", error);
     yield { type: 'error', error: 'Failed to generate response' };
   }
 }
 
 // Streaming version of handleUserQuery
 async function* handleUserQueryStreaming(chat, userMessageContent, userFiles = null) {
-  console.log("USER MESSAGE (STREAMING):", userMessageContent);
   let response;
   let safetyCounter = 0;
   let lastFunctionResult = null;
@@ -1246,31 +1613,31 @@ async function* handleUserQueryStreaming(chat, userMessageContent, userFiles = n
     // Add files if present
     if (userFiles && Array.isArray(userFiles)) {
       for (const file of userFiles) {
-        if (file && file.uri) {
+        if (file && file.url) {
           try {
-            if (file.type === 'image') {
+            if (file.category === 'image') {
               // Fetch the image from Firebase Storage and convert to base64
-              const response = await fetch(file.uri);
+              const response = await fetch(file.url);
               const arrayBuffer = await response.arrayBuffer();
               const base64Data = Buffer.from(arrayBuffer).toString('base64');
               
               userParts.push({
                 inlineData: {
-                  mimeType: file.mimeType,
+                  mimeType: file.type,
                   data: base64Data,
                 }
               });
-            } else if (file.type === 'gemini') {
+            } else if (file.geminiFile) {
               // Use Gemini File API URI directly
               userParts.push({
                 fileData: {
-                  mimeType: file.mimeType,
-                  fileUri: file.uri
+                  mimeType: file.type,
+                  fileUri: file.geminiFile.uri
                 }
               });
             }
           } catch (error) {
-            console.error('Error processing current user file:', error);
+            console.error('Error processing file in handleUserQueryStreaming:', error);
             // Continue without this file if processing fails
           }
         }
@@ -1329,13 +1696,9 @@ async function* handleUserQueryStreaming(chat, userMessageContent, userFiles = n
         const { thoughts, function_call } = extractThoughtsAndFunctionCall(response);
         const functionCallToExecute = function_call || (response.functionCalls && response.functionCalls[0]);
 
-        if (thoughts) {
-          console.log("AI THOUGHTS (STREAMING):", thoughts);
-        }
+
 
         if (functionCallToExecute) {
-          console.log("AI FUNCTION CALL (STREAMING):", JSON.stringify(functionCallToExecute, null, 2));
-
           const functionName = functionCallToExecute.name;
           lastFunctionName = functionName;
 
@@ -1356,7 +1719,14 @@ async function* handleUserQueryStreaming(chat, userMessageContent, userFiles = n
 
           const result = await executeMcpTool(functionName, args);
           lastFunctionResult = result;
-          console.log("AI FUNCTION CALL RESULT (STREAMING):", JSON.stringify(result, null, 2));
+
+          // Emit special event for image generation
+          if ((functionName === 'generateImage' || functionName === 'generateImageWithReference') && result && result.success) {
+            yield {
+              type: 'image_generation',
+              result: result
+            };
+          }
 
           try {
             // Add the function call and response to the conversation history
@@ -1386,7 +1756,16 @@ async function* handleUserQueryStreaming(chat, userMessageContent, userFiles = n
             
             response = functionResponse;
           } catch (error) {
-            console.log("Error in function response (streaming): " + error);
+            // If we have a function result but the LLM failed to respond, format it directly
+            if (lastFunctionResult) {
+              const formattedResult = formatFunctionResultsDirectly(
+                lastFunctionName,
+                lastFunctionResult,
+                userMessageContent
+              );
+              yield* streamTextResponse(formattedResult);
+              return;
+            }
             break;
           }
         } else {
@@ -1394,6 +1773,20 @@ async function* handleUserQueryStreaming(chat, userMessageContent, userFiles = n
         }
 
         safetyCounter++;
+      }
+      
+      // If we executed function calls but didn't get a proper response, format the result directly
+      if (safetyCounter > 0 && lastFunctionResult) {
+        const finalAnswer = extractAssistantText(response || initialResponse);
+        if (!finalAnswer) {
+          const formattedResult = formatFunctionResultsDirectly(
+            lastFunctionName,
+            lastFunctionResult,
+            userMessageContent
+          );
+          yield* streamTextResponse(formattedResult);
+          return;
+        }
       }
     }
 
@@ -1419,7 +1812,6 @@ async function* handleUserQueryStreaming(chat, userMessageContent, userFiles = n
     }
 
   } catch (error) {
-    console.log("Error in streaming handler: " + error);
     
     // Fallback to non-streaming approach
     try {

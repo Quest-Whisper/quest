@@ -15,12 +15,7 @@ export async function POST(req) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Debug request
-    console.log('Received request:', {
-      method: req.method,
-      headers: Object.fromEntries(req.headers.entries()),
-      contentType: req.headers.get('content-type')
-    });
+
 
     // Ensure proper content type
     if (!req.headers.get('content-type')?.includes('application/json')) {
@@ -30,16 +25,14 @@ export async function POST(req) {
       );
     }
 
-    // Get the raw body text for debugging
+    // Get the raw body text
     const bodyText = await req.text();
-    console.log('Raw request body:', bodyText);
 
     // Try to parse the JSON
     let requestData;
     try {
       requestData = JSON.parse(bodyText);
     } catch (parseError) {
-      console.error('JSON parse error:', parseError);
       return NextResponse.json(
         { error: "Invalid JSON in request body" },
         { status: 400 }
@@ -55,8 +48,7 @@ export async function POST(req) {
       );
     }
 
-    // Log parsed data
-    console.log('Parsed request data:', { prompt, chatId, context });
+
 
     // Initialize Gemini AI
     const ai = new GoogleGenAI({
@@ -175,7 +167,6 @@ export async function POST(req) {
       });
 
     } catch (dbError) {
-      console.error("Database error:", dbError);
       // Still return the image data even if database save fails
       return NextResponse.json({
         success: true,
@@ -187,7 +178,6 @@ export async function POST(req) {
     }
 
   } catch (error) {
-    console.error("Image generation error:", error);
     return NextResponse.json(
       { error: "Failed to generate image" },
       { status: 500 }

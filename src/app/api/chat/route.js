@@ -1,81 +1,42 @@
 import { NextResponse } from "next/server";
-import { generateChatCompletion, generateConversationTitle, generateChatCompletionStreaming } from "@/lib/largeLanguageModel";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { generateChatCompletion, generateChatCompletionStreaming, executeMcpTool, generateConversationTitle } from "@/lib/largeLanguageModel";
 import connectToDatabase from "@/lib/mongodb";
 import Chat from "@/models/Chat";
-
-import { authOptions } from "@/lib/auth";
-import { getServerSession } from "next-auth";
 
 // Add streaming support
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Helper function to save chat messages to a specific chat instance
-async function saveChat(userMessage, aiMessage, context, chatId = null) {
-  try {
-    if (chatId) {
-      // Update existing chat
-      const chat = await Chat.findById(chatId);
-      if (!chat) {
-        throw new Error('Chat not found');
-      }
-      
-      // Add new messages
-      const userMessageToSave = {
-        role: userMessage.role,
-        content: userMessage.content,
-        timestamp: new Date(userMessage.timestamp || Date.now()),
-        user: userMessage.user,
-        attachments: userMessage.attachments || null,
-      };
-      
-      const aiMessageToSave = {
-        role: aiMessage.role,
-        content: aiMessage.content,
-        timestamp: new Date(aiMessage.timestamp || Date.now()),
-        isImageGeneration: aiMessage.isImageGeneration || false,
-      };
-      
-      console.log('Saving user message:', JSON.stringify(userMessageToSave, null, 2));
-      console.log('Saving AI message:', JSON.stringify(aiMessageToSave, null, 2));
-      
-      chat.messages.push(userMessageToSave, aiMessageToSave);
-      
-      await chat.save();
-      return { chatId: chat._id, isNew: false };
-    } else {
-      // Create new chat instance with AI-generated title
-      const title = await generateConversationTitle(userMessage.content, aiMessage.content);
-      
-      const userMessageToSave = {
-        role: userMessage.role,
-        content: userMessage.content,
-        timestamp: new Date(userMessage.timestamp || Date.now()),
-        user: userMessage.user,
-        attachments: userMessage.attachments || null,
-      };
-      
-      const aiMessageToSave = {
-        role: aiMessage.role,
-        content: aiMessage.content,
-        timestamp: new Date(aiMessage.timestamp || Date.now()),
-        isImageGeneration: aiMessage.isImageGeneration || false,
-      };
-      
-      console.log('Creating new chat with user message:', JSON.stringify(userMessageToSave, null, 2));
-      console.log('Creating new chat with AI message:', JSON.stringify(aiMessageToSave, null, 2));
-      
-      const newChat = await Chat.create({
-        userId: context.userId,
-        title: title,
-        messages: [userMessageToSave, aiMessageToSave],
-      });
-      
-      return { chatId: newChat._id, isNew: true };
+// Helper function to send streaming response
+const streamResponse = (writer, data) => {
+  const encoder = new TextEncoder();
+  return writer.write(encoder.encode(JSON.stringify(data) + '\n'));
+};
+
+// Helper function to save chat to MongoDB
+async function saveChat(userMessage, aiMessage, userId, chatId = null) {
+  await connectToDatabase();
+
+  if (chatId) {
+    // Update existing chat
+    const chat = await Chat.findById(chatId);
+    if (!chat) {
+      throw new Error("Chat not found");
     }
-  } catch (error) {
-    console.error("Error saving chat:", error);
-    throw error;
+    chat.messages.push(userMessage, aiMessage);
+    await chat.save();
+    return { chatId: chat._id.toString(), isNew: false };
+  } else {
+    // Create new chat
+    const title = await generateConversationTitle(userMessage.content, aiMessage.content);
+    const newChat = await Chat.create({
+      userId: userId,
+      title: title,
+      messages: [userMessage, aiMessage],
+    });
+    return { chatId: newChat._id.toString(), isNew: true };
   }
 }
 
@@ -168,271 +129,194 @@ export async function DELETE(request) {
   }
 }
 
-export async function POST(request) {
+export async function POST(req) {
   try {
+    // Check authentication
     const session = await getServerSession(authOptions);
-    const url = new URL(request.url);
-    const isStreaming = url.searchParams.get("stream") === "true";
-
-    const { messages, context, chatId } = await request.json();
-
-    if (!messages || !Array.isArray(messages)) {
-      return NextResponse.json(
-        { error: "Messages array is required" },
-        { status: 400 }
-      );
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Connect to MongoDB
-    await connectToDatabase();
+    const { messages, context, chatId } = await req.json();
+    const isStreaming = req.url.includes('stream=true');
 
-    // Get the latest user message
-    const latestMessage = messages[messages.length - 1];
-    
-    // Debug logging
-    console.log('Latest message received by API:', JSON.stringify(latestMessage, null, 2));
-    console.log('Attachments in latest message:', latestMessage.attachments);
+    const lastUserMessage = messages[messages.length - 1];
 
-    // For existing chats, get past messages from the chat document
-    let pastMessages = [];
-    if (chatId) {
-      try {
-        const existingChat = await Chat.findById(chatId).select('messages');
-        if (existingChat) {
-          // Use the last 20 messages from the database and convert attachments for AI
-          pastMessages = existingChat.messages.slice(-20).map(msg => ({
-            role: msg.role,
-            content: msg.content,
-            user: msg.user,
-            files: msg.attachments ? msg.attachments.map(att => {
-              if (att.type.startsWith('image/')) {
-                // Images are processed inline
-                return {
-                  type: 'image',
-                  mimeType: att.type,
-                  uri: att.url
-                };
-              } else if (att.geminiFile) {
-                // Non-images use Gemini File API
-                return {
-                  type: 'gemini',
-                  uri: att.geminiFile.uri,
-                  mimeType: att.geminiFile.mimeType
-                };
-              }
-              return null;
-            }).filter(Boolean) : null
-          }));
-        }
-      } catch (error) {
-        console.error("Error fetching existing chat:", error);
-        // Continue with empty past messages if chat not found
-      }
-    } else {
-      // For new chats, use messages from the request (should just be the current message)
-      pastMessages = messages.slice(0, -1);
-    }
-
-    // Convert attachments to format for AI model
-    const messageForAI = {
-      ...latestMessage,
-      files: latestMessage.attachments ? latestMessage.attachments.map(att => {
-        if (att.type.startsWith('image/')) {
-          // Images are processed inline
-          return {
-            type: 'image',
-            mimeType: att.type,
-            uri: att.url
-          };
-        } else if (att.geminiFile) {
-          // Non-images use Gemini File API
-          return {
-            type: 'gemini',
-            uri: att.geminiFile.uri,
-            mimeType: att.geminiFile.mimeType
-          };
-        }
-        return null;
-      }).filter(Boolean) : null
-    };
-
-    // Handle streaming response
     if (isStreaming) {
-      return await handleStreamingResponse(session, messageForAI, pastMessages, context, chatId);
-    }
+      // Set up streaming response
+      const stream = new TransformStream();
+      const writer = stream.writable.getWriter();
 
-    // Generate AI response (non-streaming)
-    const response = await generateChatCompletion(session, messageForAI, pastMessages);
+      // Start processing in the background
+      (async () => {
+        try {
+          // Always use the LLM for streaming - it will handle image generation internally
+          const response = await generateChatCompletionStreaming(
+            session,
+            lastUserMessage,
+            messages
+          );
 
-    // Prepare messages for saving (use original message for saving)
-    const userMessage = {
-      role: "user",
-      content: latestMessage.content,
-      timestamp: new Date(),
-      user: {
-        name: context.userName || session?.user?.name,
-        email: context.userEmail || session?.user?.email,
-      },
-      attachments: latestMessage.attachments || null,
-    };
-
-    const aiMessage = {
-      role: "model",
-      content: response,
-      timestamp: new Date(),
-    };
-
-    // Save the conversation
-    const saveResult = await saveChat(userMessage, aiMessage, context, chatId);
-
-    return NextResponse.json({ 
-      response,
-      chatId: saveResult.chatId,
-      isNewChat: saveResult.isNew
-    });
-  } catch (error) {
-    console.error("Error in chat API:", error);
-
-    return NextResponse.json(
-      {
-        response: "I encountered an error processing your request. Please try again.",
-      },
-      { status: 200 }
-    );
-  }
-}
-
-async function handleStreamingResponse(session, messageForAI, pastMessages, context, chatId) {
-  let controllerRef;
-  let fullResponse = "";
-  let streamFinished = false;
-  
-  const stream = new ReadableStream({
-    start(controller) {
-      controllerRef = controller;
-    },
-    cancel(reason) {
-      console.log("[Chat Stream] Stream cancelled:", reason);
-      streamFinished = true;
-    },
-  });
-
-  // Start the streaming generation in the background
-  (async () => {
-    try {
-      const streamingGenerator = generateChatCompletionStreaming(session, messageForAI, pastMessages);
-      
-      for await (const chunk of streamingGenerator) {
-        if (streamFinished) break;
-        
-        if (chunk.type === 'content') {
-          fullResponse += chunk.content;
-
-          // Send the chunk to the client
-          const chunkData = JSON.stringify({
-            type: 'content',
-            content: chunk.content,
-            fullContent: fullResponse
-          }) + '\n';
-          
-          if (controllerRef && !streamFinished) {
-            controllerRef.enqueue(new TextEncoder().encode(chunkData));
-          }
-        } else if (chunk.type === 'done') {
-          // Save the completed conversation (use original message for saving)
-          const userMessage = {
+          // Create user message for saving
+          const userMessageToSave = {
             role: "user",
-            content: messageForAI.content,
+            content: lastUserMessage.content,
             timestamp: new Date(),
             user: {
-              name: context.userName || session?.user?.name,
-              email: context.userEmail || session?.user?.email,
+              name: session.user.name,
+              email: session.user.email,
             },
-            attachments: messageForAI.attachments || null,
+            attachments: lastUserMessage.attachments || null
           };
 
-          const aiMessage = {
+          let fullContent = '';
+          let imageResult = null;
+          
+          // Process the response if it's a generator
+          if (typeof response !== 'string') {
+            for await (const chunk of response) {
+              if (chunk.type === 'content') {
+                fullContent += chunk.content;
+                await streamResponse(writer, chunk);
+              } else if (chunk.type === 'image_generation') {
+                // Handle image generation results from the LLM
+                imageResult = chunk.result;
+                await streamResponse(writer, chunk);
+              } else if (chunk.type === 'done') {
+                // Don't send the LLM's done event - we'll send our own with chat metadata
+                continue;
+              } else {
+                // Send other event types (like error)
+                await streamResponse(writer, chunk);
+              }
+            }
+          } else {
+            fullContent = response;
+          }
+
+          // Create AI message for saving with the complete content
+          const aiMessageToSave = {
             role: "model",
-            content: fullResponse,
+            content: fullContent || "I apologize, but I couldn't generate a response.",
             timestamp: new Date(),
+            ...(imageResult && {
+              isImageGeneration: true,
+              imageDescription: imageResult.description,
+              attachments: [{
+                url: imageResult.url,
+                type: imageResult.type,
+                displayName: imageResult.displayName,
+                size: imageResult.size,
+                category: imageResult.category,
+                isGenerated: imageResult.isGenerated,
+                prompt: imageResult.prompt
+              }]
+            })
           };
 
-          try {
-            const saveResult = await saveChat(userMessage, aiMessage, context, chatId);
+          // Save the chat after we have the complete content
+          const saveResult = await saveChat(
+            userMessageToSave,
+            aiMessageToSave,
+            session.user.id,
+            chatId
+          );
 
-            // Send completion message
-            const completionData = JSON.stringify({
-              type: 'done',
-              fullContent: fullResponse,
-              chatId: saveResult.chatId,
-              isNewChat: saveResult.isNew
-            }) + '\n';
-            
-            if (controllerRef && !streamFinished) {
-              controllerRef.enqueue(new TextEncoder().encode(completionData));
-            }
-          } catch (saveError) {
-            console.error("Error saving streamed chat:", saveError);
-            // Send error but don't fail the stream
-            const errorData = JSON.stringify({
-              type: 'error',
-              error: 'Failed to save chat',
-              fullContent: fullResponse
-            }) + '\n';
-            
-            if (controllerRef && !streamFinished) {
-              controllerRef.enqueue(new TextEncoder().encode(errorData));
-            }
-          }
-          
-          if (controllerRef && !streamFinished) {
-            streamFinished = true;
-            controllerRef.close();
-          }
-          break;
-        } else if (chunk.type === 'error') {
-          // Send error message
-          const errorData = JSON.stringify({
+          // Send completion message with chat info
+          const doneData = {
+            type: 'done',
+            chatId: saveResult.chatId,
+            isNewChat: saveResult.isNew
+          };
+          await streamResponse(writer, doneData);
+
+          writer.close();
+        } catch (error) {
+          console.error('Streaming error:', error);
+          await streamResponse(writer, {
             type: 'error',
-            error: chunk.error,
-            fullContent: fullResponse
-          }) + '\n';
-          
-          if (controllerRef && !streamFinished) {
-            controllerRef.enqueue(new TextEncoder().encode(errorData));
-            streamFinished = true;
-            controllerRef.close();
-          }
-          break;
+            error: error.message
+          });
+          writer.close();
         }
-      }
-    } catch (error) {
-      console.error("Error in streaming generation:", error);
-      
-      const errorData = JSON.stringify({
-        type: 'error',
-        error: 'Failed to generate response',
-        fullContent: fullResponse
-      }) + '\n';
-      
-      if (controllerRef && !streamFinished) {
-        controllerRef.enqueue(new TextEncoder().encode(errorData));
-        streamFinished = true;
-        controllerRef.close();
-      }
-    }
-  })();
+      })();
 
-  return new NextResponse(stream, {
-    headers: {
-      "Content-Type": "text/plain; charset=utf-8",
-      "Cache-Control": "no-cache, no-store, must-revalidate",
-      "Connection": "keep-alive",
-      "Transfer-Encoding": "chunked",
-      "X-Accel-Buffering": "no",
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
-    },
-  });
+      return new Response(stream.readable, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+        },
+      });
+    } else {
+      // Non-streaming response - let the LLM handle everything including image generation
+      const response = await generateChatCompletion(
+        session,
+        lastUserMessage,
+        messages
+      );
+
+      // Create user message for saving
+      const userMessageToSave = {
+        role: "user",
+        content: lastUserMessage.content,
+        timestamp: new Date(),
+        user: {
+          name: session.user.name,
+          email: session.user.email,
+        },
+        attachments: lastUserMessage.attachments || null
+      };
+
+      // Extract image result if present (for non-streaming responses)
+      let imageResult = null;
+      let responseContent = response;
+      
+      if (typeof response === 'object' && response.attachments) {
+        // If response contains attachments, it's likely an image generation response
+        imageResult = response.attachments[0];
+        responseContent = response.content;
+      }
+
+      // Create AI message for saving
+      const aiMessageToSave = {
+        role: "model",
+        content: typeof responseContent === 'string' ? responseContent : responseContent.content || "I apologize, but I couldn't generate a response.",
+        timestamp: new Date(),
+        ...(imageResult && {
+          isImageGeneration: true,
+          imageDescription: imageResult.description || imageResult.prompt,
+          attachments: [{
+            url: imageResult.url,
+            type: imageResult.type,
+            displayName: imageResult.displayName,
+            size: imageResult.size,
+            category: imageResult.category,
+            isGenerated: imageResult.isGenerated,
+            prompt: imageResult.prompt
+          }]
+        })
+      };
+
+      // Save the chat
+      const saveResult = await saveChat(
+        userMessageToSave,
+        aiMessageToSave,
+        session.user.id,
+        chatId
+      );
+
+      return NextResponse.json({ 
+        response,
+        chatId: saveResult.chatId,
+        isNewChat: saveResult.isNew
+      });
+    }
+  } catch (error) {
+    console.error('Error in chat route:', error);
+    return NextResponse.json(
+      { error: error.message || 'An error occurred' },
+      { status: 500 }
+    );
+  }
 }

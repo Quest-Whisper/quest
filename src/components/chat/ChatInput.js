@@ -12,7 +12,6 @@ import {
   PaperClipIcon,
   SpeakerWaveIcon,
   VideoCameraIcon,
-  SparklesIcon,
 } from "@heroicons/react/24/solid";
 import Image from "next/image";
 import { useSession } from "next-auth/react";
@@ -26,7 +25,6 @@ export default function ChatInput({ onSend, isLoading, onVoiceMode }) {
   const [filePreviews, setFilePreviews] = useState([]);
   const [isUploadingFiles, setIsUploadingFiles] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
-  const [isImageGenerationMode, setIsImageGenerationMode] = useState(false);
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
   const { data: session } = useSession();
@@ -47,8 +45,7 @@ export default function ChatInput({ onSend, isLoading, onVoiceMode }) {
     if ((message.trim() || selectedFiles.length > 0) && !isLoading && !isUploadingFiles) {
       let messageData = {
         text: message,
-        attachments: selectedFiles.length > 0 ? selectedFiles : null,
-        isImageGeneration: isImageGenerationMode
+        attachments: selectedFiles.length > 0 ? selectedFiles : null
       };
       
       onSend(messageData);
@@ -361,7 +358,7 @@ export default function ChatInput({ onSend, isLoading, onVoiceMode }) {
               onKeyDown={handleKeyDown}
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
-              placeholder={isImageGenerationMode ? "Describe the image you want to generate..." : "Ask me anything..."}
+              placeholder="Ask me anything..."
               maxRows={isMobile ? 6 : 8}
               minRows={1}
               className={`
@@ -387,10 +384,10 @@ export default function ChatInput({ onSend, isLoading, onVoiceMode }) {
               <motion.button 
                 type="button"
                 onClick={handleFileSelect}
-                disabled={isLoading || isUploadingFiles || isImageGenerationMode}
+                disabled={isLoading || isUploadingFiles}
                 className="relative group cursor-pointer"
               >
-                <div className={`flex h-[32px] w-[32px] border border-[#CCD6DD] p-[6px] rounded-full bg-[#E1E8ED] hover:bg-[#CCD6DD] justify-center disabled:opacity-50 disabled:cursor-not-allowed ${isImageGenerationMode ? 'opacity-50' : ''}`}>
+                <div className="flex h-[32px] w-[32px] border border-[#CCD6DD] p-[6px] rounded-full bg-[#E1E8ED] hover:bg-[#CCD6DD] justify-center disabled:opacity-50 disabled:cursor-not-allowed">
                   <PaperClipIcon className="w-4 h-4 text-gray-600" />
                 </div>
                 {filePreviews.length > 0 && (
@@ -400,32 +397,13 @@ export default function ChatInput({ onSend, isLoading, onVoiceMode }) {
                 )}
               </motion.button>
               
-              {/* Image Generation Toggle Button */}
-              <motion.button 
-                type="button"
-                onClick={() => {
-                  setIsImageGenerationMode(!isImageGenerationMode);
-                  if (!isImageGenerationMode) {
-                    // Clear any selected files when enabling image generation
-                    setSelectedFiles([]);
-                    setFilePreviews([]);
-                  }
-                }}
-                className="relative group cursor-pointer"
-              >
-                <div className={`flex h-[32px] w-[32px] border border-[#CCD6DD] p-[6px] rounded-full ${isImageGenerationMode ? 'bg-blue-100 border-blue-200' : 'bg-[#E1E8ED]'} hover:bg-[#CCD6DD] justify-center`}>
-                  <SparklesIcon className={`w-4 h-4 ${isImageGenerationMode ? 'text-blue-600' : 'text-gray-600'}`} />
-                </div>
-              </motion.button>
-              
               {/* Voice Chat Button */}
               <motion.button 
                 type="button"
                 onClick={handleVoiceMode} 
-                disabled={isImageGenerationMode}
                 className="relative group cursor-pointer"
               >
-                <div className={`flex h-[32px] w-[32px] border border-[#CCD6DD] p-[6px] rounded-full bg-[#E1E8ED] hover:bg-[#CCD6DD] justify-center ${isImageGenerationMode ? 'opacity-50' : ''}`}>
+                <div className="flex h-[32px] w-[32px] border border-[#CCD6DD] p-[6px] rounded-full bg-[#E1E8ED] hover:bg-[#CCD6DD] justify-center">
                   <Image
                     src="/icons/waveform_lcon.png"
                     alt="waveform icon"
@@ -585,7 +563,6 @@ export default function ChatInput({ onSend, isLoading, onVoiceMode }) {
         accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.md,audio/*,video/*"
         onChange={handleFileChange}
         className="hidden"
-        disabled={isImageGenerationMode}
       />
     </form>
   );

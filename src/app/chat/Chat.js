@@ -301,7 +301,7 @@ function Chat() {
         // For image generation, create an AI message that will trigger the image generation
         const aiMessage = {
           role: "model",
-          content,
+          content: content,
           timestamp: new Date().toISOString(),
           status: "complete",
           isImageGeneration: true,
@@ -309,9 +309,17 @@ function Chat() {
             name: session?.user?.name,
             email: session?.user?.email,
           },
-          userId: session?.user?.id
+          userId: session?.user?.id,
+          // Add a placeholder for attachments that will be updated when generation is complete
+          attachments: []
         };
-        setMessages((prev) => [...prev, aiMessage]);
+        
+        // Try streaming first
+        const success = await handleStreamingMessage(content, userMessage);
+        if (!success) {
+          // Fallback to non-streaming
+          await handleNonStreamingMessage(content, userMessage);
+        }
         
         // Mark user message as sent
         setMessages((prev) => 
@@ -340,6 +348,7 @@ function Chat() {
     try {
       // Log the messages being sent to API
       console.log('Sending messages to API:', [...messages, userMessage]);
+      console.log('Current chatId being sent:', currentChatId);
 
       const response = await fetch("/api/chat?stream=true", {
         method: "POST",
@@ -376,6 +385,7 @@ function Chat() {
 
       const decoder = new TextDecoder();
       let streamedContent = "";
+      let imageGenerationResult = null;
 
       // Mark user message as sent
       setMessages((prev) => 
@@ -409,6 +419,7 @@ function Chat() {
         for (const line of lines) {
           try {
             const data = JSON.parse(line);
+            console.log('Received streaming data:', data);
             
             if (data.type === 'content') {
               streamedContent += data.content;
@@ -421,7 +432,12 @@ function Chat() {
                     : msg
                 )
               );
+            } else if (data.type === 'image_generation') {
+              // Store image generation result
+              imageGenerationResult = data.result;
             } else if (data.type === 'done') {
+              console.log('Received done event:', data);
+              
               // Finalize the message
               setMessages((prev) => 
                 prev.map((msg) => 
@@ -429,7 +445,21 @@ function Chat() {
                     ? { 
                         ...msg, 
                         content: data.fullContent || streamedContent,
-                        isStreaming: false 
+                        isStreaming: false,
+                        // Add image generation data if available
+                        ...(imageGenerationResult && {
+                          attachments: [{
+                            url: imageGenerationResult.url,
+                            type: imageGenerationResult.type,
+                            displayName: imageGenerationResult.displayName,
+                            size: imageGenerationResult.size,
+                            category: imageGenerationResult.category,
+                            isGenerated: imageGenerationResult.isGenerated,
+                            prompt: imageGenerationResult.prompt
+                          }],
+                          isImageGeneration: true,
+                          imageDescription: imageGenerationResult.description
+                        })
                       }
                     : msg
                 )
@@ -437,9 +467,12 @@ function Chat() {
 
               // Update chat ID if this was a new chat
               if (data.isNewChat && data.chatId) {
+                console.log('Setting new chatId:', data.chatId);
                 setCurrentChatId(data.chatId);
                 window.history.replaceState({}, "", `/chat?id=${data.chatId}`);
                 loadChatHistory();
+              } else {
+                console.log('Not updating chatId - isNewChat:', data.isNewChat, 'chatId:', data.chatId);
               }
               
               setIsLoading(false);
@@ -521,6 +554,7 @@ function Chat() {
 
     // Update chat ID if this was a new chat
     if (data.isNewChat && data.chatId) {
+      console.log('Setting new chatId (non-streaming):', data.chatId);
       setCurrentChatId(data.chatId);
       window.history.replaceState({}, "", `/chat?id=${data.chatId}`);
       loadChatHistory();
