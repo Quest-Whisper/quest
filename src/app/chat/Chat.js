@@ -39,12 +39,21 @@ function Chat() {
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  // Modified auto-scroll to trigger on mount and for all messages
+  // Modified auto-scroll to only trigger for user messages
   useEffect(() => {
-    if (messages.length > 0 && messagesEndRef.current) {
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage?.role === "user" && messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView();
     }
   }, [messages]);
+
+  // Initial scroll when messages are loaded
+  useEffect(() => {
+    const isInitialLoad = messages.length > 0 && !messages.some(msg => msg.isStreaming);
+    if (isInitialLoad && messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView();
+    }
+  }, [messages]); // Run when messages change, but only scroll on initial load
 
   // Load chat history on mount
   useEffect(() => {
@@ -669,7 +678,7 @@ function Chat() {
                 )}
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                  <h2 className="text-lg font-semibold text-gray-800">
+                  <h2 className="text-[18px] font-medium text-gray-800">
                     {currentChatId
                       ? chatHistory.find((c) => c.id === currentChatId)
                           ?.title || "Chat"

@@ -47,7 +47,7 @@ Follow these guidelines:
    - Example: "The print function outputs to the console" (not "The \`print\` function")
    - Example: "Open the config.json file" (not "Open the \`config.json\` file")
 5. Use **bold** (**text**) and *italic* (*text*) for emphasis.
-6. For responses that contain image search results:
+6. Only For google search responses that contain image search results:
    - NEVER format image results as a table or list
    - Add a JSON object with "images" array to your regular text response
    - Example format in your message:

@@ -36,10 +36,10 @@ const QUICK_WHISPER_MCP_API_KEY = process.env.QUICK_WHISPER_MCP_API_KEY;
 if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is required");
 
 const GOOGLE_SEARCH_MCP_SERVER =
-  "https://quick-whisper-mcp-server-service-720003427280.us-central1.run.app/api/google";
+  "https://quest-whisper-mcp-server-service-720003427280.us-central1.run.app/api/google";
 
 const GOOGLE_WORKSPACE_SERVER =
-  "https://quick-whisper-mcp-server-service-720003427280.us-central1.run.app/api/google-workspace";
+  "https://quest-whisper-mcp-server-service-720003427280.us-central1.run.app/api/google-workspace";
 
 const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 
@@ -1290,9 +1290,25 @@ export async function executeMcpTool(name, args) {
   const tool = mcpTools.find((t) => t.name === name);
   if (!tool) throw new Error(`No tool named ${name}`);
 
-  console.log("TOOL CALLED : " + JSON.stringify(args) );
+  try {
+    console.log('\n=== TOOL EXECUTION START ===');
+    console.log('Tool Name:', name);
+    console.log('Arguments:', JSON.stringify(args, null, 2));
 
-  return tool.execute(args);
+    const result = await tool.execute(args);
+    
+    console.log('\n=== TOOL EXECUTION RESULT ===');
+    console.log(JSON.stringify(result, null, 2));
+    console.log('=== TOOL EXECUTION END ===\n');
+
+    return result;
+  } catch (error) {
+    console.error('\n=== TOOL EXECUTION ERROR ===');
+    console.error('Tool:', name);
+    console.error('Error:', error.message);
+    console.error('=== ERROR END ===\n');
+    throw error;
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1440,54 +1456,67 @@ async function handleUserQuery(chat, userMessageContent, userFiles = null) {
   let lastFunctionName = null;
 
   try {
+    console.log('\n=== STARTING NEW USER QUERY ===');
+    console.log('User Message:', userMessageContent);
+    if (userFiles) {
+      console.log('Attached Files:', JSON.stringify(userFiles, null, 2));
+    }
+
     response = await sendWithRetry(chat, userMessageContent, userFiles, {
-      retries: 5, // total tries
-      initialDelayMs: 1000, // 1s before first retry
-      backoffFactor: 2, // 1s, 2s, 4s, …
+      retries: 5,
+      initialDelayMs: 1000,
+      backoffFactor: 2,
     });
   } catch (error) {
+    console.error('Initial Response Error:', error.message);
     response = await chat.sendMessage({ message: "Please try again" });
   }
 
   try {
-    // Extract function calls from Gemini response format
     while (
       (response.functionCalls?.length > 0 ||
         extractThoughtsAndFunctionCall(response).function_call) &&
       safetyCounter < 5
     ) {
-      // First try to extract from our JSON parsing approach
-      const { thoughts, function_call } =
-        extractThoughtsAndFunctionCall(response);
+      const { thoughts, function_call } = extractThoughtsAndFunctionCall(response);
 
-      // Use either the extracted function call or the native functionCalls array
+      console.log('\n=== AI PROCESSING ===');
+      if (thoughts) {
+        console.log('AI Thoughts:', JSON.stringify(thoughts, null, 2));
+      }
+
       const functionCallToExecute =
         function_call || (response.functionCalls && response.functionCalls[0]);
 
       if (functionCallToExecute) {
+        console.log('\n=== FUNCTION CALL DETECTED ===');
+        console.log('Function Name:', functionCallToExecute.name);
+        
         const functionName = functionCallToExecute.name;
         lastFunctionName = functionName;
 
-        // Parse arguments from either format
         let args;
         if (functionCallToExecute.arguments) {
-          const rawArgs = functionCallToExecute.arguments;
-          args = typeof rawArgs === "string" ? JSON.parse(rawArgs) : rawArgs;
+          args = typeof functionCallToExecute.arguments === "string" 
+            ? JSON.parse(functionCallToExecute.arguments) 
+            : functionCallToExecute.arguments;
         } else if (functionCallToExecute.args) {
-          const rawArgs = functionCallToExecute.args;
-          args = typeof rawArgs === "string" ? JSON.parse(rawArgs) : rawArgs;
+          args = typeof functionCallToExecute.args === "string"
+            ? JSON.parse(functionCallToExecute.args)
+            : functionCallToExecute.args;
         } else if (functionCallToExecute.parameters) {
-          const rawArgs = functionCallToExecute.parameters;
-          args = typeof rawArgs === "string" ? JSON.parse(rawArgs) : rawArgs;
+          args = typeof functionCallToExecute.parameters === "string"
+            ? JSON.parse(functionCallToExecute.parameters)
+            : functionCallToExecute.parameters;
         } else {
           args = {};
         }
 
+        console.log('Parsed Arguments:', JSON.stringify(args, null, 2));
+
         const result = await executeMcpTool(functionName, args);
-        
         lastFunctionResult = result;
 
-        // Use the correct format for Gemini API function response
         try {
           response = await chat.sendMessage({
             message: {
@@ -1497,22 +1526,28 @@ async function handleUserQuery(chat, userMessageContent, userFiles = null) {
               },
             },
           });
+          console.log('\n=== FUNCTION RESPONSE SENT TO AI ===');
         } catch (error) {
-          // If we get an error here, we'll break the loop and use our fallback formatter
+          console.error('\n=== FUNCTION RESPONSE ERROR ===');
+          console.error('Error:', error.message);
           break;
         }
       } else {
-        // Break if no function call is found
+        console.log('\n=== NO FUNCTION CALL FOUND ===');
         break;
       }
 
       safetyCounter++;
+      console.log('Safety Counter:', safetyCounter);
     }
   } catch (error) {
-    // Continue with response processing
+    console.error('\n=== PROCESSING ERROR ===');
+    console.error('Error:', error.message);
   }
 
   const finalAnswer = extractAssistantText(response);
+  console.log('\n=== FINAL RESPONSE ===');
+  console.log('Has Answer:', !!finalAnswer);
 
   // If we still don't have a response, try to construct one from the results
   if (!finalAnswer && safetyCounter > 0) {
