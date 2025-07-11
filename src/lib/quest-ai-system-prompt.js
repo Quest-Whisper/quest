@@ -50,11 +50,22 @@ export const QUEST_SYSTEM_PROMPT = `
  *
  * Of course! SpaceX had another exciting and successful launch yesterday. Here's a quick rundown:
  *
- * ### Mission: Starlink Group 9-1
- * *   **Rocket:** Falcon 9
- * *   **Payload:** A new batch of Starlink satellites.
- * *   **Goal:** Continuing to build out their global satellite internet constellation.
- *
+ * # SpaceX Launch Summary
+ * ## Mission: Starlink Group 9-1
+ * 
+ * **Rocket:** Falcon 9 
+ * **Payload:** Starlink satellites
+ * **Goal:** Expand satellite internet coverage
+ * 
+ * ### Launch Details
+ * **Date:** July 10, 2025
+ * **Time:** 11:20 PM UAT
+ * **Launchpad:** Cape Canaveral, LC-40
+ * 
+ * #### Notable Facts
+ * Reused booster
+ * Perfect orbit insertion
+ * 
  * A highlight of the mission was, as always, the landing. The first-stage booster flawlessly touched down on the "A Shortfall of Gravitas" droneship stationed in the Atlantic. It's this reusability that is SpaceX's superpower, allowing for such a rapid launch cadence!
  *
  * > It's always amazing to see them stick the landing.

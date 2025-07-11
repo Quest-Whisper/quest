@@ -7,13 +7,13 @@ import { ClipboardDocumentIcon } from "@heroicons/react/24/outline";
 import toast from "react-hot-toast";
 
 import SyntaxHighlighter from "react-syntax-highlighter";
-import { gruvboxDark } from "react-syntax-highlighter/dist/esm/styles/hljs";
+import { atomOneDark } from "react-syntax-highlighter/dist/esm/styles/hljs";
 
 // Custom components for ReactMarkdown
 export const markdownComponents = {
   // Basic text components - handle code blocks separately from paragraphs
   p: ({ children }) => {
-    return <p className="mb-6 text-slate-700 dark:text-slate-200 leading-relaxed">{children}</p>
+    return <p className="text-[16px] mb-6 text-slate-700 dark:text-slate-200 leading-relaxed">{children}</p>
   },
 
   // Handle both inline and block code
@@ -52,7 +52,7 @@ export const markdownComponents = {
           <span className="block p-5 overflow-x-auto bg-[#282828]">
             <SyntaxHighlighter
               language={language}
-              style={gruvboxDark}
+              style={atomOneDark}
               PreTag="span"
               CodeTag="span"
               customStyle={{ background: "transparent", padding: 0, margin: 0, display: "block" }}
@@ -81,17 +81,17 @@ export const markdownComponents = {
   },
 
   h1: ({ children }) => (
-    <h1 className="text-2xl font-bold mb-6 text-slate-800 dark:text-slate-100 leading-tight">
+    <h1 className="text-[32px] font-bold mb-6 text-slate-800 dark:text-slate-100 leading-tight">
       {children}
     </h1>
   ),
   h2: ({ children }) => (
-    <h2 className="text-xl font-bold mt-8 mb-4 text-slate-800 dark:text-slate-100 leading-tight">
+    <h2 className="text-[24px] font-medium mt-8 mb-4 text-slate-800 dark:text-slate-100 leading-tight">
       {children}
     </h2>
   ),
   h3: ({ children }) => (
-    <h3 className="text-[14px] font-bold mb-4 text-slate-700 dark:text-slate-200 leading-tight">
+    <h3 className="text-[20px] font-medium mb-4 text-slate-700 dark:text-slate-200 leading-tight">
       {children}
     </h3>
   ),
@@ -143,6 +143,6 @@ export const markdownComponents = {
     />
   ),
   hr: () => (
-    <hr className="my-10 border-t-2 border-slate-200 dark:border-slate-700" />
+    <hr className="my-10 border-t-[1px] border-slate-200 dark:border-slate-700" />
   ),
 };
