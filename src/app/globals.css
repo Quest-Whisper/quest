@@ -9,6 +9,12 @@
   font-family: var(--font-rubik), sans-serif;
 }
 
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #181818;
+  }
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

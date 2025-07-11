@@ -33,19 +33,6 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex relative ">
-      {/* Subtle background image for mobile */}
-      <div className="absolute inset-0 lg:hidden">
-        <Image
-          src="/banner2.jpg"
-          alt="Background"
-          layout="fill"
-          objectFit="cover"
-          priority
-          className="opacity-15"
-        />
-        <div className="absolute inset-0 bg-white/80"></div>
-      </div>
-
       {/* Left side - Login Form */}
       <div className="w-full py-[100px] lg:w-1/2 flex flex-col justify-center px-8 md:px-16 bg-white dark:bg-[#181818] relative z-10">
         <div className="max-w-md text-center w-full mx-auto">
@@ -117,8 +104,8 @@ export default function LoginPage() {
       {/* Right side - Image with Text Overlay */}
       <div className="hidden lg:block w-1/2 relative bg-gray-100">
         <Image
-          src="/banner2.jpg"
-          alt="Decorative plant on wooden stand"
+          src="/ai_login_banner.png"
+          alt="AI generated banner"
           layout="fill"
           objectFit="cover"
           priority
@@ -127,12 +114,9 @@ export default function LoginPage() {
         <div className="flex bg-black h-[100vh] w-[100%] p-[50px] justify-center items-center">
           <div className="bg-gradient-to-br from-white/10 to-white/5 max-w-[720px]">
             <div className="left-12 right-12 p-8 bg-white/80 backdrop-blur-sm rounded-xl">
-              <h3 className="text-2xl font-bold text-gray-800 mb-2">
-                Your AI companion is ready to explore ideas with you
-              </h3>
+              <h3 className="text-2xl font-bold text-gray-800 mb-2">Prompt</h3>
               <p className="text-gray-600">
-                Experience thoughtful conversations with voice capabilities and
-                personalized assistance tailored to your interests and needs.
+              A high-resolution grid of diverse, stylized cartoon avatars. Each avatar is a unique character with a 'chibi' aesthetic, featuring expressive eyes and simplified, rounded forms, rendered in clean vector art with bold outlines. The characters should include recognizable pop culture parodies and original designs, inspired by styles seen in The Simpsons, South Park, and Family Guy, but adapted to this unique avatar art style. Each avatar is set against a vibrant, highly saturated, solid-colored square background. The squares are arranged in a grid, creating a sense of variety, showcasing a collection of distinct and playful personalities.
               </p>
             </div>
           </div>

@@ -94,7 +94,7 @@ export default function ChatSidebar({
       <motion.div
         className={`${
           isMobile && isFullyOpen ? "fixed left-0 top-0 h-full z-50" : ""
-        } bg-white dark:bg-[#181818] border-r border-gray-200 dark:border-[#3B3B3B] flex flex-col overflow-hidden shadow-lg transition-all duration-300 ease-out`}
+        } bg-white dark:bg-[#181818] border-r border-gray-200 ${isMobile?"dark:border-0":"dark:border-[#3B3B3B]"} flex flex-col overflow-hidden shadow-lg transition-all duration-300 ease-out`}
         animate={{
           width: isHidden ? 0 : isMinimized ? 72 : 290,
           opacity: isHidden ? 0 : 1,
