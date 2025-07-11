@@ -13,62 +13,24 @@ import { gruvboxDark } from "react-syntax-highlighter/dist/esm/styles/hljs";
 export const markdownComponents = {
   // Basic text components - handle code blocks separately from paragraphs
   p: ({ children }) => {
-    // Convert children to array for easier processing
-    const childArray = React.Children.toArray(children);
-    
-    // Split children into code blocks and other content
-    const elements = childArray.reduce((acc, child) => {
-      if (React.isValidElement(child) && 
-          child.type === "code" && 
-          !child.props.inline) {
-        // If we have accumulated text content, add it as a paragraph
-        if (acc.textContent.length > 0) {
-          acc.elements.push(
-            <p key={acc.elements.length} className="mb-6 text-slate-700 dark:text-slate-200 leading-relaxed">
-              {acc.textContent}
-            </p>
-          );
-          acc.textContent = [];
-        }
-        // Add the code block
-        acc.elements.push(React.cloneElement(child, { key: acc.elements.length }));
-      } else {
-        // Accumulate text content
-        acc.textContent.push(child);
-      }
-      return acc;
-    }, { elements: [], textContent: [] });
-
-    // Handle any remaining text content
-    if (elements.textContent.length > 0) {
-      elements.elements.push(
-        <p key={elements.elements.length} className="mb-6 text-slate-700 dark:text-slate-200 leading-relaxed">
-          {elements.textContent}
-        </p>
-      );
-    }
-
-    // Return all elements
-    return <>{elements.elements}</>;
+    return <p className="mb-6 text-slate-700 dark:text-slate-200 leading-relaxed">{children}</p>
   },
 
   // Handle both inline and block code
-  code: ({ inline, children, className }) => {
-    // Handle inline code
-    if (inline) {
+  code({inline, className, children}) {
+    const langMatch = /language-(\w+)/.exec(className);
+    if (inline || !langMatch) {
       return (
-        <span className="bg-slate-100 dark:bg-slate-700/50 rounded px-1.5 py-0.5 text-sm font-mono">
+        <code className="bg-slate-100 dark:bg-slate-700/50 rounded px-1.5 py-0.5 text-sm font-mono">
           {children}
-        </span>
+        </code>
       );
     }
 
-    // Handle code blocks (triple backticks)
-    const match = /language-(\w+)/.exec(className || "");
-    const language = match ? match[1] : "text";
+    // Otherwise it’s a fenced code block
+    const language = langMatch[1];
     const text = String(children).replace(/\n$/, "");
 
-    // For code blocks, render as a standalone block
     return (
       <span className="block my-6 rounded-xl overflow-hidden bg-[#282828] dark:bg-[#3B3B3B]/60">
         <span className="block relative">
@@ -88,17 +50,12 @@ export const markdownComponents = {
             </button>
           </span>
           <span className="block p-5 overflow-x-auto bg-[#282828]">
-            <SyntaxHighlighter 
-              language={language} 
+            <SyntaxHighlighter
+              language={language}
               style={gruvboxDark}
               PreTag="span"
               CodeTag="span"
-              customStyle={{
-                background: "transparent",
-                padding: 0,
-                margin: 0,
-                display: "block",
-              }}
+              customStyle={{ background: "transparent", padding: 0, margin: 0, display: "block" }}
             >
               {text}
             </SyntaxHighlighter>
@@ -107,10 +64,7 @@ export const markdownComponents = {
       </span>
     );
   },
-
-  // Remove the pre component since we handle code blocks in the code component
-  pre: ({ children }) => <>{children}</>,
-
+  
   // Rest of the components remain unchanged
   a: ({ node, children, href, ...props }) => {
     return (
@@ -187,5 +141,8 @@ export const markdownComponents = {
       className="px-4 py-3 text-sm text-slate-700 dark:text-slate-200 border-r border-slate-200 dark:border-[#212124]/50 last:border-r-0"
       {...props}
     />
+  ),
+  hr: () => (
+    <hr className="my-10 border-t-2 border-slate-200 dark:border-slate-700" />
   ),
 };
