@@ -85,29 +85,35 @@ const mcpTools = [
   },
   {
     name: "googleImageSearch",
-    description: "Use this tool to search for images using Google's image search capabilities",
+    description:
+      "Use this tool to search for images using Google's image search capabilities",
     parameters: {
       type: "OBJECT",
       properties: {
         query: { type: "STRING", description: "Search query for images" },
-        num: { type: "NUMBER", description: "Number of images to return (1-10)" },
+        num: {
+          type: "NUMBER",
+          description: "Number of images to return (1-10)",
+        },
         page: { type: "NUMBER", description: "Page number (1-based)" },
-        imageSize: { 
-          type: "STRING", 
-          description: "Filter by image size (e.g., 'large', 'medium', 'icon')" 
+        imageSize: {
+          type: "STRING",
+          description: "Filter by image size (e.g., 'large', 'medium', 'icon')",
         },
-        imageType: { 
-          type: "STRING", 
-          description: "Filter by image type (e.g., 'face', 'photo', 'clipart', 'lineart')" 
+        imageType: {
+          type: "STRING",
+          description:
+            "Filter by image type (e.g., 'face', 'photo', 'clipart', 'lineart')",
         },
-        imageColor: { 
-          type: "STRING", 
-          description: "Filter by predominant color (e.g., 'red', 'blue', 'green', 'black', 'white')" 
+        imageColor: {
+          type: "STRING",
+          description:
+            "Filter by predominant color (e.g., 'red', 'blue', 'green', 'black', 'white')",
         },
-        safe: { 
-          type: "STRING", 
-          description: "Safe search setting ('active' or 'off')" 
-        }
+        safe: {
+          type: "STRING",
+          description: "Safe search setting ('active' or 'off')",
+        },
       },
       required: ["query"],
     },
@@ -1291,22 +1297,22 @@ export async function executeMcpTool(name, args) {
   if (!tool) throw new Error(`No tool named ${name}`);
 
   try {
-    console.log('\n=== TOOL EXECUTION START ===');
-    console.log('Tool Name:', name);
-    console.log('Arguments:', JSON.stringify(args, null, 2));
+    console.log("\n=== TOOL EXECUTION START ===");
+    console.log("Tool Name:", name);
+    console.log("Arguments:", JSON.stringify(args, null, 2));
 
     const result = await tool.execute(args);
-    
-    console.log('\n=== TOOL EXECUTION RESULT ===');
+
+    console.log("\n=== TOOL EXECUTION RESULT ===");
     console.log(JSON.stringify(result, null, 2));
-    console.log('=== TOOL EXECUTION END ===\n');
+    console.log("=== TOOL EXECUTION END ===\n");
 
     return result;
   } catch (error) {
-    console.error('\n=== TOOL EXECUTION ERROR ===');
-    console.error('Tool:', name);
-    console.error('Error:', error.message);
-    console.error('=== ERROR END ===\n');
+    console.error("\n=== TOOL EXECUTION ERROR ===");
+    console.error("Tool:", name);
+    console.error("Error:", error.message);
+    console.error("=== ERROR END ===\n");
     throw error;
   }
 }
@@ -1456,10 +1462,10 @@ async function handleUserQuery(chat, userMessageContent, userFiles = null) {
   let lastFunctionName = null;
 
   try {
-    console.log('\n=== STARTING NEW USER QUERY ===');
-    console.log('User Message:', userMessageContent);
+    console.log("\n=== STARTING NEW USER QUERY ===");
+    console.log("User Message:", userMessageContent);
     if (userFiles) {
-      console.log('Attached Files:', JSON.stringify(userFiles, null, 2));
+      console.log("Attached Files:", JSON.stringify(userFiles, null, 2));
     }
 
     response = await sendWithRetry(chat, userMessageContent, userFiles, {
@@ -1468,7 +1474,7 @@ async function handleUserQuery(chat, userMessageContent, userFiles = null) {
       backoffFactor: 2,
     });
   } catch (error) {
-    console.error('Initial Response Error:', error.message);
+    console.error("Initial Response Error:", error.message);
     response = await chat.sendMessage({ message: "Please try again" });
   }
 
@@ -1478,41 +1484,45 @@ async function handleUserQuery(chat, userMessageContent, userFiles = null) {
         extractThoughtsAndFunctionCall(response).function_call) &&
       safetyCounter < 5
     ) {
-      const { thoughts, function_call } = extractThoughtsAndFunctionCall(response);
+      const { thoughts, function_call } =
+        extractThoughtsAndFunctionCall(response);
 
-      console.log('\n=== AI PROCESSING ===');
+      console.log("\n=== AI PROCESSING ===");
       if (thoughts) {
-        console.log('AI Thoughts:', JSON.stringify(thoughts, null, 2));
+        console.log("AI Thoughts:", JSON.stringify(thoughts, null, 2));
       }
 
       const functionCallToExecute =
         function_call || (response.functionCalls && response.functionCalls[0]);
 
       if (functionCallToExecute) {
-        console.log('\n=== FUNCTION CALL DETECTED ===');
-        console.log('Function Name:', functionCallToExecute.name);
-        
+        console.log("\n=== FUNCTION CALL DETECTED ===");
+        console.log("Function Name:", functionCallToExecute.name);
+
         const functionName = functionCallToExecute.name;
         lastFunctionName = functionName;
 
         let args;
         if (functionCallToExecute.arguments) {
-          args = typeof functionCallToExecute.arguments === "string" 
-            ? JSON.parse(functionCallToExecute.arguments) 
-            : functionCallToExecute.arguments;
+          args =
+            typeof functionCallToExecute.arguments === "string"
+              ? JSON.parse(functionCallToExecute.arguments)
+              : functionCallToExecute.arguments;
         } else if (functionCallToExecute.args) {
-          args = typeof functionCallToExecute.args === "string"
-            ? JSON.parse(functionCallToExecute.args)
-            : functionCallToExecute.args;
+          args =
+            typeof functionCallToExecute.args === "string"
+              ? JSON.parse(functionCallToExecute.args)
+              : functionCallToExecute.args;
         } else if (functionCallToExecute.parameters) {
-          args = typeof functionCallToExecute.parameters === "string"
-            ? JSON.parse(functionCallToExecute.parameters)
-            : functionCallToExecute.parameters;
+          args =
+            typeof functionCallToExecute.parameters === "string"
+              ? JSON.parse(functionCallToExecute.parameters)
+              : functionCallToExecute.parameters;
         } else {
           args = {};
         }
 
-        console.log('Parsed Arguments:', JSON.stringify(args, null, 2));
+        console.log("Parsed Arguments:", JSON.stringify(args, null, 2));
 
         const result = await executeMcpTool(functionName, args);
         lastFunctionResult = result;
@@ -1526,28 +1536,28 @@ async function handleUserQuery(chat, userMessageContent, userFiles = null) {
               },
             },
           });
-          console.log('\n=== FUNCTION RESPONSE SENT TO AI ===');
+          console.log("\n=== FUNCTION RESPONSE SENT TO AI ===");
         } catch (error) {
-          console.error('\n=== FUNCTION RESPONSE ERROR ===');
-          console.error('Error:', error.message);
+          console.error("\n=== FUNCTION RESPONSE ERROR ===");
+          console.error("Error:", error.message);
           break;
         }
       } else {
-        console.log('\n=== NO FUNCTION CALL FOUND ===');
+        console.log("\n=== NO FUNCTION CALL FOUND ===");
         break;
       }
 
       safetyCounter++;
-      console.log('Safety Counter:', safetyCounter);
+      console.log("Safety Counter:", safetyCounter);
     }
   } catch (error) {
-    console.error('\n=== PROCESSING ERROR ===');
-    console.error('Error:', error.message);
+    console.error("\n=== PROCESSING ERROR ===");
+    console.error("Error:", error.message);
   }
 
   const finalAnswer = extractAssistantText(response);
-  console.log('\n=== FINAL RESPONSE ===');
-  console.log('Has Answer:', !!finalAnswer);
+  console.log("\n=== FINAL RESPONSE ===");
+  console.log("Has Answer:", !!finalAnswer);
 
   // If we still don't have a response, try to construct one from the results
   if (!finalAnswer && safetyCounter > 0) {
@@ -1603,31 +1613,31 @@ function formatFunctionResultsDirectly(functionName, result, userQuery) {
     if (functionName === "googleSearch") {
       // Format google search results
       if (result.results && result.results.length > 0) {
-        const sources = result.results.map(item => ({
+        const sources = result.results.map((item) => ({
           title: item.title,
           url: item.link,
           snippet: item.snippet,
-          image: item.pagemap?.cse_image?.[0]?.src || null
+          image: item.pagemap?.cse_image?.[0]?.src || null,
         }));
 
         // Return structured data for the LLM to process
         return {
-          sources: sources
+          sources: sources,
         };
       }
     } else if (functionName === "googleImageSearch") {
       // Format google image search results
       if (result.images && result.images.length > 0) {
-        const images = result.images.map(item => ({
+        const images = result.images.map((item) => ({
           url: item.image.url,
           title: item.title,
           thumbnail: item.image.thumbnailLink || item.image.url,
-          context: item.context
+          context: item.context,
         }));
 
         // Let the LLM handle the natural conversation
         const response = {
-          images: images
+          images: images,
         };
 
         // Add the response to the conversation for the LLM to process
@@ -1799,10 +1809,7 @@ export async function generateChatCompletion(
 
   let userDetails = "No session data available.";
   if (session && session.user) {
-    userDetails = `
-User ID: ${session.user.id}
-Name: ${session.user.name}
-`;
+    userDetails = `User ID: ${session.user.id} User Name: ${session.user.name} Email: ${session.user.email}`;
   }
 
   // Add current message attachments to context
@@ -2289,12 +2296,12 @@ async function* streamTextResponse(text) {
   // First, extract any sources or images data
   const sourcesMatch = text.match(/sources:\s*(\[[\s\S]*?\])\s*\n*/);
   const imagesMatch = text.match(/images:\s*(\[[\s\S]*?\])\s*\n*/);
-  
+
   // Remove metadata from the text
   let cleanText = text
-    .replace(/sources:\s*\[[\s\S]*?\]\s*\n*/, '') // Remove sources
-    .replace(/images:\s*\[[\s\S]*?\]\s*\n*/, '') // Remove images
-    .replace(/\n{3,}/g, '\n\n') // Clean up extra newlines
+    .replace(/sources:\s*\[[\s\S]*?\]\s*\n*/, "") // Remove sources
+    .replace(/images:\s*\[[\s\S]*?\]\s*\n*/, "") // Remove images
+    .replace(/\n{3,}/g, "\n\n") // Clean up extra newlines
     .trim();
 
   // Remove duplicate text that might appear after the metadata
@@ -2313,7 +2320,16 @@ async function* streamTextResponse(text) {
     yield {
       type: "content",
       content: sourcesMatch[0] + "\n\n",
-      isMetadata: true
+      isMetadata: true,
+    };
+  }
+
+  // After streaming is complete, send any remaining metadata
+  if (imagesMatch) {
+    yield {
+      type: "content",
+      content: imagesMatch[0] + "\n\n",
+      isMetadata: true,
     };
   }
 
@@ -2338,15 +2354,6 @@ async function* streamTextResponse(text) {
 
     // Add a small delay to simulate realistic streaming
     await new Promise((resolve) => setTimeout(resolve, delay));
-  }
-
-  // After streaming is complete, send any remaining metadata
-  if (imagesMatch) {
-    yield {
-      type: "content",
-      content: "\n\n" + imagesMatch.join('\n'),
-      isMetadata: true
-    };
   }
 
   yield { type: "done" };
