@@ -47,83 +47,49 @@ export default function ShareModal({
         initial={{ opacity: 0, scale: 0.9, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.9, y: 20 }}
-        className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md"
+        className="bg-white dark:bg-[#181818] rounded-2xl shadow-2xl p-6 w-full max-w-md"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="text-center mb-6">
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">
+          <h3 className="text-xl font-semibold text-slate-700 dark:text-slate-200  mb-2">
             Share Response
           </h3>
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-slate-600 dark:text-slate-300">
             Choose how you'd like to share this AI response
           </p>
         </div>
 
         <div className="space-y-4">
-          {/* Social Media Sharing */}
-          <div>
-            <h4 className="text-sm font-medium text-gray-700 mb-3">
-              Social Media
-            </h4>
-            <div className="grid grid-cols-3 gap-3">
-              {platforms.map((platform) => (
-                <motion.button
-                  key={platform.key}
-                  onClick={() => handlePlatformShare(platform.key)}
-                  className={`${platform.color} text-white p-3 rounded-xl text-xs font-medium transition-colors`}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  {platform.name}
-                </motion.button>
-              ))}
-            </div>
-          </div>
-
           {/* Direct Actions */}
           <div>
-            <h4 className="text-sm font-medium text-gray-700 mb-3">
-              Direct Actions
+            <h4 className="text-sm font-medium text-slate-700 dark:text-slate-200 mb-3">
+              Options
             </h4>
             <div className="space-y-2">
               <motion.button
-                onClick={handleEmailShare}
-                className="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-colors"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
-                  📧
-                </div>
-                <span className="text-sm font-medium text-gray-700">
-                  Share via Email
-                </span>
-              </motion.button>
-
-              <motion.button
                 onClick={handleCreateLink}
-                className="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-colors"
+                className="w-full cursor-pointer flex items-center gap-3 p-3 rounded-xl border border-gray-200 dark:border-[#3B3B3B] hover:border-gray-300 hover:bg-gray-50 dark:hover:bg-[#3B3B3B]/50 dark:hover:border-0"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >
-                <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
+                <div className="w-8 h-8 bg-gray-100 dark:bg-[#3B3B3B] rounded-lg flex items-center justify-center">
                   🔗
                 </div>
-                <span className="text-sm font-medium text-gray-700">
+                <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
                   Create Share Link
                 </span>
               </motion.button>
 
               <motion.button
                 onClick={handleDownload}
-                className="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-colors"
+                className="w-full cursor-pointer flex items-center gap-3 p-3 rounded-xl border border-gray-200 dark:border-[#3B3B3B] hover:border-gray-300 hover:bg-gray-50 dark:hover:bg-[#3B3B3B]/50 dark:hover:border-0"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >
-                <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
+                <div className="w-8 h-8 bg-gray-100 dark:bg-[#3B3B3B] rounded-lg flex items-center justify-center">
                   💾
                 </div>
-                <span className="text-sm font-medium text-gray-700">
+                <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
                   Download as File
                 </span>
               </motion.button>
@@ -133,7 +99,7 @@ export default function ShareModal({
 
         <motion.button
           onClick={onClose}
-          className="w-full mt-6 p-3 bg-gray-100 hover:bg-gray-200 rounded-xl text-sm font-medium text-gray-700 transition-colors"
+          className="w-full cursor-pointer mt-6 p-3 bg-gray-100 dark:bg-[#3B3B3B] hover:bg-gray-200 dark:hover:bg-[#3B3B3B]/50 rounded-xl text-sm font-medium text-slate-700 dark:text-slate-200 transition-colors"
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
         >

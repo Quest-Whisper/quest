@@ -609,10 +609,10 @@ function Chat() {
 
   if (status === "loading" || showSidebar === null) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-50">
+      <div className="flex items-center justify-center h-screen bg-gray-50 dark:bg-[#181818]">
         <div className="flex flex-col items-center gap-4">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <p className="text-gray-600 text-sm">Loading QuestWhisper...</p>
+          <p className="text-slate-700 dark:text-slate-200 text-sm">Loading QuestWhisper...</p>
         </div>
       </div>
     );
@@ -641,9 +641,9 @@ function Chat() {
           />
 
           {/* Main chat area */}
-          <div className="flex-1 flex flex-col relative bg-white h-full">
+          <div className="flex-1 flex flex-col relative bg-white dark:bg-[#181818] h-full">
             {/* Top bar */}
-            <div className="border-b border-gray-200 bg-white/80 backdrop-blur-sm p-4 flex items-center justify-between sticky top-0 z-30 shrink-0">
+            <div className="border-b border-gray-200 dark:border-[#3B3B3B] backdrop-blur-sm p-4 flex items-center justify-between sticky top-0 z-30 shrink-0">
               <div className="flex items-center gap-3">
                 {(showSidebar === false ||
                   (isMobile && showSidebar !== true)) && (
@@ -664,7 +664,7 @@ function Chat() {
                 {showSidebar === "minimized" && !isMobile && (
                   <button
                     onClick={() => setShowSidebar(true)}
-                    className="p-2 rounded-xl hover:bg-gray-100 transition-colors group"
+                    className="p-2 rounded-xl hover:bg-gray-100 hover:bg-white/60 transition-colors group"
                     title="Expand sidebar"
                   >
                     <Image
@@ -672,13 +672,12 @@ function Chat() {
                       alt="Expand sidebar"
                       width={20}
                       height={20}
-                      className="w-5 h-5 object-contain opacity-60 group-hover:opacity-80"
+                      className="w-5 h-5 object-contain opacity-60 group-hover:opacity-80 dark:invert"
                     />
                   </button>
                 )}
                 <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                  <h2 className="text-[18px] font-medium text-gray-800">
+                  <h2 className="text-[18px] font-medium text-gray-800 dark:text-[#E1E8ED]">
                     {currentChatId
                       ? chatHistory.find((c) => c.id === currentChatId)
                           ?.title || "Chat"
@@ -724,7 +723,7 @@ function Chat() {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: 0.5, duration: 0.6 }}
-                    className="text-[16px] text-slate-600 font-regular max-w-md mx-auto leading-relaxed"
+                    className="text-[16px] text-slate-600 dark:text-slate-300 font-regular max-w-md mx-auto leading-relaxed"
                   >
                     Ask me anything, and I'll help you explore ideas with
                     thoughtful responses.
@@ -756,7 +755,7 @@ function Chat() {
                 </motion.div>
               </div>
             ) : (
-              <div className="flex-1 overflow-y-auto bg-white chat-scroll relative">
+              <div className="flex-1 overflow-y-auto chat-scroll relative">
                 <div className="max-w-4xl mx-auto px-4 pt-8 pb-4">
                   <AnimatePresence mode="popLayout">
                     {messages.map((message, index) => {
@@ -828,7 +827,6 @@ function Chat() {
                               style={{ animationDelay: "0.2s" }}
                             ></div>
                           </div>
-                          <span className="text-sm">I'm thinking...</span>
                         </div>
                       </div>
                     </motion.div>
@@ -844,7 +842,7 @@ function Chat() {
             {/* Chat input at bottom - Mobile optimized */}
             <div
               className={`
-          bg-white/95 backdrop-blur-sm shrink-0
+          bg-white/95 dark:bg-[#181818] backdrop-blur-sm shrink-0
           ${isMobile ? "sticky bottom-0 pb-safe-area-inset-bottom" : "relative"}
         `}
             >

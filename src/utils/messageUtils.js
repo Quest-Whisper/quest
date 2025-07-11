@@ -8,7 +8,7 @@ export function getSources(content) {
 
   try {
     // Look for sources array at start of content
-    const match = content.match(/^sources:\s*(\[[\s\S]*?\])/);
+    const match = content.match(/sources:\s*(\[[\s\S]*?\])/);
     if (!match) return [];
 
     let jsonString = match[1];
@@ -79,7 +79,7 @@ export function getImages(content) {
 
   try {
     // Look for images array in the content
-    const match = content.match(/{\s*"images":\s*(\[[\s\S]*?\])\s*}/);
+    const match = content.match(/images:\s*(\[[\s\S]*?\])/);
     if (!match) return [];
 
     let jsonString = match[1];
@@ -124,9 +124,9 @@ export function removeSources(content) {
   if (!content) return '';
   
   // Remove sources array from start if present
-  return content.replace(/^sources:\s*\[[\s\S]*?\]\s*\n*/, '')
+  return content.replace(/sources:\s*\[[\s\S]*?\]\s*\n*/, '')
     // Remove any image JSON objects
-    .replace(/{\s*"images":\s*\[[\s\S]*?\]\s*}/g, '')
+    .replace(/images:\s*\[[\s\S]*?\]\s*\n*/, '')
     // Clean up any double newlines left behind
     .replace(/\n{3,}/g, '\n\n')
     .trim();
@@ -138,6 +138,8 @@ export function stripMarkdown(md) {
     md
       // Remove sources block first (before other processing)
       .replace(/sources:\s*\[[\s\S]*?\]\s*/gi, "")
+      // Remove images block first (before other processing)
+      .replace(/images:\s*\[[\s\S]*?\]\s*/gi, "")
       // Remove AI response prefixes
       .replace(/AI FINAL USER RESPONSE:\s*/i, "")
       // Remove code blocks (```…```)

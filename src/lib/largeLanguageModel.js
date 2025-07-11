@@ -5,7 +5,7 @@ import {
   Modality,
 } from "@google/genai";
 import axios from "axios";
-import { AXE_AI_SYSTEM_PROMPT } from "./axe-ai-system-prompt.js";
+import { QUEST_SYSTEM_PROMPT } from "./quest-ai-system-prompt.js";
 import { uploadGeneratedImageToFirebase } from "./firebase.js";
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1882,7 +1882,7 @@ When using generateImageWithReference, use the URL and type from the attachments
     model: "gemini-2.5-flash",
     config: {
       // your system prompt goes here
-      systemInstruction: AXE_AI_SYSTEM_PROMPT.replace(
+      systemInstruction: QUEST_SYSTEM_PROMPT.replace(
         "%USERDETAILS%",
         userDetails + attachmentContext
       ).replace("%DATEDETAILS%", now),
@@ -1992,7 +1992,7 @@ When using generateImageWithReference, use the URL and type from the attachments
   const chat = ai.chats.create({
     model: "gemini-2.5-flash",
     config: {
-      systemInstruction: AXE_AI_SYSTEM_PROMPT.replace(
+      systemInstruction: QUEST_SYSTEM_PROMPT.replace(
         "%USERDETAILS%",
         userDetails + attachmentContext
       ).replace("%DATEDETAILS%", now),
@@ -2287,13 +2287,13 @@ async function* handleUserQueryStreaming(
 // Improved helper function to stream text response in chunks
 async function* streamTextResponse(text) {
   // First, extract any sources or images data
-  const sourcesMatch = text.match(/^sources:\s*(\[[\s\S]*?\])\s*\n*/);
-  const imagesMatch = text.match(/{\s*"images":\s*\[[\s\S]*?\]\s*}/g);
+  const sourcesMatch = text.match(/sources:\s*(\[[\s\S]*?\])\s*\n*/);
+  const imagesMatch = text.match(/images:\s*(\[[\s\S]*?\])\s*\n*/);
   
   // Remove metadata from the text
   let cleanText = text
-    .replace(/^sources:\s*\[[\s\S]*?\]\s*\n*/, '') // Remove sources
-    .replace(/{\s*"images":\s*\[[\s\S]*?\]\s*}/g, '') // Remove images
+    .replace(/sources:\s*\[[\s\S]*?\]\s*\n*/, '') // Remove sources
+    .replace(/images:\s*\[[\s\S]*?\]\s*\n*/, '') // Remove images
     .replace(/\n{3,}/g, '\n\n') // Clean up extra newlines
     .trim();
 

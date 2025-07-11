@@ -8,11 +8,11 @@ import remarkGfm from "remark-gfm";
 import React from "react";
 
 // Import utilities and components
-import { 
-  getSources, 
+import {
+  getSources,
   removeSources,
   getImages,
-  getMessageTypeFlags 
+  getMessageTypeFlags,
 } from "../../utils/messageUtils";
 import { markdownComponents } from "../../utils/markdownComponents";
 import { useAudio } from "../../hooks/useAudio";
@@ -36,8 +36,8 @@ const SearchResultImages = ({ images }) => {
   const handleImageClick = (index, event) => {
     const rect = event.target.getBoundingClientRect();
     setClickPosition({
-      x: rect.left + (rect.width / 2) - (window.innerWidth / 2),
-      y: rect.top + (rect.height / 2) - (window.innerHeight / 2)
+      x: rect.left + rect.width / 2 - window.innerWidth / 2,
+      y: rect.top + rect.height / 2 - window.innerHeight / 2,
     });
     setSelectedImageIndex(index);
     setSlideshowOpen(true);
@@ -48,7 +48,7 @@ const SearchResultImages = ({ images }) => {
       <div className="flex flex-row md:grid md:grid-cols-4 md:items-center overflow-x-scroll gap-4 mb-4 w-full">
         {images.map((image, index) => (
           <div key={index} className="flex-shrink-0">
-            <button 
+            <button
               onClick={(e) => handleImageClick(index, e)}
               className="block overflow-hidden rounded-lg border-gray-400 bg-gray-100 w-[150px] md:w-[100%] cursor-pointer hover:opacity-90 transition-opacity"
             >
@@ -89,32 +89,34 @@ export default function ChatMessage({
 
   // Use custom hooks
   const audio = useAudio();
-  
+
   // Get message type flags
   const messageFlags = getMessageTypeFlags(message, isUser);
-  const { 
-    isError, 
-    isStreaming, 
-    isRetryableError, 
-    isRetryable, 
+  const {
+    isError,
+    isStreaming,
+    isRetryableError,
+    isRetryable,
     isImageGeneration,
     hasUserAttachments,
     hasDisplayImage,
-    hasAttachedImage
+    hasAttachedImage,
   } = messageFlags;
 
   // Use image generation hook
   const { isGeneratingImage, generatedImageUrl } = useImageGeneration(
-    message, 
-    isImageGeneration, 
+    message,
+    isImageGeneration,
     onChatUpdate
   );
 
   // Determine sources and images
   const sources = message.sources?.length ? message.sources : parsedSources;
   const images = message.images?.length ? message.images : parsedImages;
-  const hasSources = !isUser && sources.length > 0 && (!isStreaming || showMetadata);
-  const hasImages = !isUser && images.length > 0 && (!isStreaming || showMetadata);
+  const hasSources =
+    !isUser && sources.length > 0 && (!isStreaming || showMetadata);
+  const hasImages =
+    !isUser && images.length > 0 && (!isStreaming || showMetadata);
 
   // Parse sources and images from message content
   useEffect(() => {
@@ -187,10 +189,12 @@ export default function ChatMessage({
           <div
             className={`flex flex-col ${isUser ? "items-end" : "items-start"}`}
           >
+            {/* Display user-uploaded attachments */}
+            {isUser && <UserAttachments attachments={message.attachments} />}
             <motion.div
               className={`${
                 isUser
-                  ? "bg-slate-200 rounded-3xl px-4 pt-[12px] max-w-[70%] flex items-center"
+                  ? "bg-slate-200 dark:bg-[#3B3B3B] rounded-3xl px-4 pt-[12px] max-w-[70%] flex items-center"
                   : isError && !isRetryableError
                   ? "bg-red-50 border border-red-200 text-red-800 rounded-xl px-4 py-3"
                   : "w-full"
@@ -210,9 +214,7 @@ export default function ChatMessage({
               layout={!isStreaming} // Disable layout animation during streaming
             >
               {/* Display search result images */}
-              {hasImages && (
-                <SearchResultImages images={images} />
-              )}
+              {hasImages && <SearchResultImages images={images} />}
 
               {/* Display generated image */}
               {isImageGeneration && (
@@ -243,7 +245,7 @@ export default function ChatMessage({
               {/* Message content */}
               {!isUser ? (
                 <motion.article
-                  className="text-[16px] leading-relaxed text-slate-800"
+                  className="text-[16px] leading-relaxed text-slate-800 dark:text-slate-200 dark:text-slate-200"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: isStreaming ? 0 : 0.1 }}
@@ -306,7 +308,7 @@ export default function ChatMessage({
                           }}
                         />
                       </div>
-                      <span className="text-sm text-slate-500">
+                      <span className="text-sm text-slate-700 dark:text-slate-200">
                         generating...
                       </span>
                     </motion.div>
@@ -314,9 +316,7 @@ export default function ChatMessage({
                 </motion.article>
               ) : (
                 <div className="flex flex-col">
-                  {/* Display user-uploaded attachments */}
-                  <UserAttachments attachments={message.attachments} />
-                  <span className="mb-[12px]">
+                  <span className="mb-[12px] dark:text-slate-200">
                     {removeSources(message.content)}
                   </span>
                 </div>

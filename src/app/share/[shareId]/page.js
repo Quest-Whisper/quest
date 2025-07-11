@@ -66,53 +66,89 @@ export default function SharePage() {
   // Custom components for ReactMarkdown
   const components = {
     h1: ({ node, ...props }) => (
-      <h1 className="text-2xl font-bold mb-6 text-slate-800 leading-tight" {...props} />
+      <h1
+        className="text-2xl font-bold mb-6 text-slate-800 dark:text-slate-200 leading-tight"
+        {...props}
+      />
     ),
     h2: ({ node, ...props }) => (
-      <h2 className="text-xl font-bold mt-8 mb-4 text-slate-800 leading-tight" {...props} />
+      <h2
+        className="text-xl font-bold mt-8 mb-4 text-slate-800 dark:text-slate-200 leading-tight"
+        {...props}
+      />
     ),
     h3: ({ node, ...props }) => (
-      <h3 className="text-lg font-bold mb-4 text-slate-700 leading-tight" {...props} />
+      <h3
+        className="text-lg font-bold mb-4 text-slate-700 dark:text-slate-300 leading-tight"
+        {...props}
+      />
     ),
     p: ({ node, ...props }) => (
-      <p className="mb-4 text-slate-700 leading-relaxed" {...props} />
+      <p
+        className="mb-4 text-slate-700 dark:text-slate-300 leading-relaxed"
+        {...props}
+      />
     ),
     ul: ({ node, ...props }) => (
-      <ul className="list-disc pl-6 mb-4 space-y-2 text-slate-700" {...props} />
+      <ul
+        className="list-disc pl-6 mb-4 space-y-2 text-slate-700 dark:text-slate-300"
+        {...props}
+      />
     ),
     ol: ({ node, ...props }) => (
-      <ol className="list-decimal pl-6 mb-4 space-y-2 text-slate-700" {...props} />
+      <ol
+        className="list-decimal pl-6 mb-4 space-y-2 text-slate-700 dark:text-slate-300"
+        {...props}
+      />
     ),
     li: ({ node, ...props }) => <li className="leading-relaxed" {...props} />,
     blockquote: ({ node, ...props }) => (
-      <blockquote className="border-l-4 border-blue-200 pl-4 italic text-slate-600 my-4 bg-blue-50/50 py-2 rounded-r-lg" {...props} />
+      <blockquote
+        className="border-l-4 border-blue-200 pl-4 italic text-slate-600 dark:text-slate-300 my-4 bg-blue-50/50 py-2 rounded-r-lg"
+        {...props}
+      />
     ),
     code: ({ node, inline, ...props }) =>
       inline ? (
-        <code className="bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded text-sm font-mono" {...props} />
+        <code
+          className="bg-slate-100 text-slate-800 dark:text-slate-400 px-1.5 py-0.5 rounded text-sm font-mono"
+          {...props}
+        />
       ) : (
-        <code className="block bg-slate-900 text-slate-100 p-4 rounded-lg text-sm font-mono overflow-x-auto" {...props} />
+        <code
+          className="block bg-slate-900 text-slate-100 p-4 rounded-lg text-sm font-mono overflow-x-auto"
+          {...props}
+        />
       ),
     pre: ({ node, ...props }) => (
-      <pre className="bg-slate-900 rounded-lg overflow-hidden my-4" {...props} />
+      <pre
+        className="bg-slate-900 rounded-lg overflow-hidden my-4"
+        {...props}
+      />
     ),
     strong: ({ node, ...props }) => (
-      <strong className="font-semibold text-slate-800" {...props} />
+      <strong
+        className="font-semibold text-slate-800 dark:text-slate-400"
+        {...props}
+      />
     ),
     em: ({ node, ...props }) => (
-      <em className="italic text-slate-700" {...props} />
+      <em className="italic text-slate-700 dark:text-slate-200" {...props} />
     ),
     a: ({ node, ...props }) => (
-      <a className="text-blue-600 hover:text-blue-700 underline underline-offset-2 transition-colors" {...props} />
+      <a
+        className="text-blue-600 dark:text-blue-400 hover:text-blue-700 underline underline-offset-2 transition-colors"
+        {...props}
+      />
     ),
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-[#181818] flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#4f7269] mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading shared content...</p>
+          <p className="text-gray-600 dark:text-slate-300">Loading shared content...</p>
         </div>
       </div>
     );
@@ -120,11 +156,13 @@ export default function SharePage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-[#181818] flex items-center justify-center">
         <div className="text-center max-w-md mx-auto p-8">
           <ExclamationTriangleIcon className="h-16 w-16 text-red-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Content Not Found</h1>
-          <p className="text-gray-600 mb-6">{error}</p>
+          <h1 className="text-2xl font-bold text-slate-700 dark:text-slate-200 mb-2">
+            Content Not Found
+          </h1>
+          <p className="text-gray-600 dark:text-slate-400 mb-6">{error}</p>
           <a
             href="/"
             className="inline-flex items-center px-4 py-2 bg-[#4f7269] text-white rounded-lg hover:bg-[#3f5a51] transition-colors"
@@ -137,29 +175,41 @@ export default function SharePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#181818]">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-40">
+      <header className="bg-white dark:bg-[#181818] border-b border-gray-200 dark:border-[#3B3B3B] sticky top-0 z-40">
         <div className="max-w-4xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <Image
-                src="/whisper_logo.webp"
-                alt="QuestWhisper Logo"
-                width={32}
-                height={32}
-                className="rounded-lg"
-              />
+              <div className="relative w-[35px] h-[35px]">
+                <Image
+                  src="/whisper_logo.png"
+                  alt="QuestWhisper"
+                  fill
+                  className="object-contain dark:collapse"
+                />
+
+                <Image
+                  src="/whisper_logo_dark.png"
+                  alt="QuestWhisper"
+                  fill
+                  className="object-contain collapse dark:visible"
+                />
+              </div>
               <div>
-                <h1 className="text-lg font-semibold text-[#4f7269]">QuestWhisper</h1>
-                <p className="text-sm text-gray-500">Shared AI Response</p>
+                <h1 className="text-lg font-semibold text-[#4f7269]">
+                  QuestWhisper
+                </h1>
+                <p className="text-sm text-slate-700 dark:text-slate-400">
+                  Shared AI Response
+                </p>
               </div>
             </div>
-            
+
             <div className="flex items-center gap-2">
               <button
                 onClick={copyToClipboard}
-                className="flex items-center gap-2 px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                className="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 dark:text-slate-200 bg-gray-100 dark:bg-[#3B3B3B] hover:bg-gray-200 dark:hover:bg-[#3B3B3B]/50 rounded-lg transition-colors"
               >
                 <ClipboardDocumentIcon className="h-4 w-4" />
                 Copy
@@ -181,11 +231,11 @@ export default function SharePage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden"
+          className="bg-white dark:bg-[#181818] rounded-2xl shadow-sm border border-gray-200 dark:border-[#3B3B3B] overflow-hidden"
         >
           {/* Metadata Header */}
-          <div className="bg-gradient-to-r from-[#4f7269]/5 to-[#4f7269]/10 px-6 py-4 border-b border-gray-200">
-            <div className="flex items-center justify-between text-sm text-gray-600">
+          <div className="bg-gradient-to-r from-[#4f7269]/5 to-[#4f7269]/10 px-6 py-4 border-b border-gray-200 dark:border-[#3B3B3B]">
+            <div className="flex items-center justify-between text-sm text-slate-600 dark:text-slate-300">
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-1">
                   <UserIcon className="h-4 w-4" />
@@ -193,7 +243,9 @@ export default function SharePage() {
                 </div>
                 <div className="flex items-center gap-1">
                   <CalendarIcon className="h-4 w-4" />
-                  <span>{new Date(shareData.createdAt).toLocaleDateString()}</span>
+                  <span>
+                    {new Date(shareData.createdAt).toLocaleDateString()}
+                  </span>
                 </div>
                 <div className="flex items-center gap-1">
                   <EyeIcon className="h-4 w-4" />
@@ -224,12 +276,15 @@ export default function SharePage() {
           {/* Content */}
           <div className="px-6 py-6">
             <motion.article
-              className="text-[16px] leading-relaxed text-slate-800 prose prose-slate max-w-none"
+              className="text-[16px] leading-relaxed text-slate-800 dark:text-slate-400 prose prose-slate max-w-none"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.3 }}
             >
-              <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={components}
+              >
                 {shareData.content}
               </ReactMarkdown>
             </motion.article>
@@ -272,7 +327,9 @@ export default function SharePage() {
                           {source.title}
                         </p>
                         <div className="flex items-center text-xs text-blue-600 mt-2 group-hover:text-blue-700">
-                          <span className="truncate font-medium">Visit source</span>
+                          <span className="truncate font-medium">
+                            Visit source
+                          </span>
                           <ArrowTopRightOnSquareIcon className="h-3 w-3 ml-1 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
                         </div>
                       </div>
@@ -291,12 +348,13 @@ export default function SharePage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6 }}
         >
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-3">
+          <div className="bg-white dark:bg-[#181818] rounded-2xl shadow-sm border border-gray-200 dark:border-[#3B3B3B] p-8">
+            <h2 className="text-2xl font-bold text-gray-700 dark:text-slate-200 mb-3">
               Experience QuestWhisper AI
             </h2>
-            <p className="text-gray-600 mb-6 max-w-md mx-auto">
-              Get intelligent responses like this one. Start your conversation with AI that connects to your entire digital world.
+            <p className="text-slate-600 dark:text-slate-300 mb-6 max-w-md mx-auto">
+              Get intelligent responses like this one. Start your conversation
+              with AI that connects to your entire digital world.
             </p>
             <a
               href="/"
@@ -309,4 +367,4 @@ export default function SharePage() {
       </main>
     </div>
   );
-} 
+}

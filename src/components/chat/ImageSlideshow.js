@@ -222,7 +222,7 @@ export default function ImageSlideshow({
           {/* Display link button */}
           {currentImage.displayLink && (
             <motion.button
-              className="bg-black/50 text-white px-4 py-2 rounded-full text-sm font-medium backdrop-blur-sm flex items-center gap-2 hover:bg-black/70 transition-colors"
+              className="cursor-pointer bg-black/50 text-white px-4 py-2 rounded-full text-sm font-medium backdrop-blur-sm flex items-center gap-2 hover:bg-black/70 transition-colors"
               onClick={handleOpenLink}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}

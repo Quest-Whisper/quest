@@ -19,19 +19,27 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white dark:bg-[#181818]">
       {/* Navigation */}
-      <nav className="fixed top-0 w-full bg-white/80 backdrop-blur-sm border-b border-gray-100 z-50">
+      <nav className="fixed top-0 w-full bg-[#4f7269]/10  backdrop-blur-lg border-b border-gray-100 dark:border-[#3B3B3B] z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-2">
-              <Image
-                src="/whisper_logo.png"
-                alt="QuestWhisper Logo"
-                width={32}
-                height={32}
-                className="rounded-lg"
-              />
+              <div className="relative w-[34px] h-[34px]">
+                <Image
+                  src="/whisper_logo.png"
+                  alt="QuestWhisper"
+                  fill
+                  className="object-contain dark:collapse"
+                />
+
+                <Image
+                  src="/whisper_logo_dark.png"
+                  alt="QuestWhisper"
+                  fill
+                  className="object-contain collapse dark:visible"
+                />
+              </div>
               <div className="flex items-center space-x-1">
                 <span className="text-xl font-semibold text-[#4f7269]">
                   Quest
@@ -67,7 +75,7 @@ export default function Home() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.8, delay: 0.1 }}
-                  className="text-5xl lg:text-6xl font-bold text-gray-900 leading-tight"
+                  className="text-5xl lg:text-6xl font-bold text-slate-700 dark:text-slate-200 leading-tight"
                 >
                   Your AI companion for{" "}
                   <span className="text-[#4f7269] relative">
@@ -86,9 +94,12 @@ export default function Home() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8, delay: 0.3 }}
-                className="text-xl text-gray-600 leading-relaxed"
+                className="text-xl text-gray-600 dark:text-slate-300 leading-relaxed"
               >
-                Experience the future of productivity. QuestWhisper seamlessly integrates with your digital world - from Gmail and Google Workspace to web research and image generation - all through natural conversation with a truly intelligent AI.
+                Experience the future of productivity. QuestWhisper seamlessly
+                integrates with your digital world - from Gmail and Google
+                Workspace to web research and image generation - all through
+                natural conversation with a truly intelligent AI.
               </motion.p>
 
               <motion.div
@@ -103,7 +114,7 @@ export default function Home() {
                 >
                   Start Talking Now
                 </button>
-                <button className="border-2 border-gray-200 text-gray-700 px-8 py-4 rounded-full hover:border-[#4f7269] hover:text-[#4f7269] transition-colors font-semibold text-lg">
+                <button className="border-2 border-gray-200 text-gray-700 dark:text-slate-200 px-8 py-4 rounded-full hover:border-[#4f7269] dark:border-[#3B3B3B] hover:text-[#4f7269] transition-colors font-semibold text-lg">
                   Watch Demo
                 </button>
               </motion.div>
@@ -123,7 +134,7 @@ export default function Home() {
                 ].map((feature, index) => (
                   <div
                     key={feature}
-                    className="bg-gray-100 text-gray-700 px-4 py-2 rounded-full text-sm font-medium"
+                    className="bg-gray-100 dark:bg-[#3B3B3B] text-gray-700 dark:text-slate-200 px-4 py-2 rounded-full text-sm font-medium"
                   >
                     {feature}
                   </div>
@@ -138,9 +149,9 @@ export default function Home() {
               transition={{ duration: 1, delay: 0.2 }}
               className="relative"
             >
-              <div className="bg-gradient-to-br from-[#4f7269]/10 to-[#4f7269]/5 rounded-3xl p-8 lg:p-12">
+              <div className="bg-[#4f7269]/10 rounded-3xl p-8 lg:p-12">
                 {/* Chat Interface Preview */}
-                <div className="bg-white rounded-2xl shadow-xl p-6 space-y-4">
+                <div className="bg-white dark:bg-[#4f7269]/10 rounded-2xl shadow-xl p-6 space-y-4">
                   <div className="flex items-center space-x-3">
                     <div className="w-8 h-8 bg-[#4f7269] rounded-full flex items-center justify-center">
                       <Image
@@ -151,11 +162,13 @@ export default function Home() {
                         className="filter brightness-0 invert"
                       />
                     </div>
-                    <div className="text-sm text-gray-500">QuestWhisper AI</div>
+                    <div className="text-sm text-slate-600 dark:text-slate-300">
+                      QuestWhisper AI
+                    </div>
                   </div>
 
-                  <div className="space-y-3">
-                    <div className="bg-gray-100 rounded-2xl p-4 max-w-xs">
+                  <div className="space-y-5">
+                    <div className="bg-gray-100 dark:bg-slate-200 rounded-2xl p-4 max-w-xs">
                       <p className="text-sm">
                         Hey! What would you like to explore today?
                       </p>
@@ -165,7 +178,7 @@ export default function Home() {
                         Tell me about the latest in AI technology
                       </p>
                     </div>
-                    <div className="bg-gray-100 rounded-2xl p-4 max-w-sm">
+                    <div className="bg-gray-100 dark:bg-slate-200 rounded-2xl p-4 max-w-sm">
                       <p className="text-sm">
                         I'd love to help! Let me search for the latest AI
                         developments...
@@ -212,7 +225,7 @@ export default function Home() {
       </section>
 
       {/* Features Section */}
-      <section className="py-16 bg-gray-50">
+      <section className="py-16 bg-gray-50 dark:bg-[#181818]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 40 }}
@@ -221,10 +234,10 @@ export default function Home() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">
+            <h2 className="text-4xl font-bold text-slate-700 dark:text-slate-200 mb-4">
               Powered by cutting-edge AI
             </h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+            <p className="text-xl text-gray-600 dark:text-slate-300 max-w-3xl mx-auto">
               The most comprehensive AI assistant ever built. From managing your
               Gmail and creating presentations to accessing your entire Google
               Workspace and searching the web - all through natural
@@ -259,7 +272,7 @@ export default function Home() {
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: index * 0.1 }}
                 viewport={{ once: true }}
-                className="bg-white rounded-2xl p-8 shadow-sm hover:shadow-md transition-shadow"
+                className="bg-white dark:bg-[#212124] rounded-2xl p-8 shadow-sm hover:shadow-md transition-shadow"
               >
                 <div className="w-12 h-12 bg-[#4f7269]/10 rounded-xl flex items-center justify-center mb-6">
                   <Image
@@ -267,13 +280,13 @@ export default function Home() {
                     alt={feature.title}
                     width={24}
                     height={24}
-                    className="filter"
+                    className="filter dark:invert"
                   />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-3">
+                <h3 className="text-xl font-semibold text-slate-700 dark:text-slate-200 mb-3">
                   {feature.title}
                 </h3>
-                <p className="text-gray-600 leading-relaxed">
+                <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
                   {feature.description}
                 </p>
               </motion.div>
@@ -283,7 +296,7 @@ export default function Home() {
       </section>
 
       {/* What Can QuestWhisper Do - Creative Showcase */}
-      <section className="py-20 bg-gradient-to-br from-gray-50 via-white to-gray-50 relative overflow-hidden">
+      <section className="py-20 bg-white  dark:bg-[#181818] relative overflow-hidden">
         {/* Background decoration */}
         <div className="absolute inset-0 bg-gradient-to-r from-[#4f7269]/5 to-transparent"></div>
         <div className="absolute top-20 right-20 w-64 h-64 bg-[#4f7269]/10 rounded-full blur-3xl"></div>
@@ -304,7 +317,7 @@ export default function Home() {
               viewport={{ once: true }}
               className="inline-block"
             >
-              <h2 className="text-5xl lg:text-6xl font-bold text-gray-900 mb-6">
+              <h2 className="text-5xl lg:text-6xl font-bold text-slate-700 dark:text-slate-200 mb-6">
                 What can QuestWhisper
                 <br />
                 <span className="bg-gradient-to-r from-[#4f7269] to-[#3f5a51] bg-clip-text text-transparent">
@@ -317,7 +330,7 @@ export default function Home() {
               whileInView={{ opacity: 1 }}
               transition={{ duration: 0.8, delay: 0.4 }}
               viewport={{ once: true }}
-              className="text-xl text-gray-600 max-w-4xl mx-auto leading-relaxed"
+              className="text-xl text-gray-600 dark:text-slate-300 max-w-4xl mx-auto leading-relaxed"
             >
               Imagine having a super-intelligent assistant who speaks your
               language, understands your needs, and can instantly work with all
@@ -334,18 +347,20 @@ export default function Home() {
             className="mb-20"
           >
             <div className="text-center mb-12">
-              <h3 className="text-3xl font-bold text-gray-900 mb-4">
+              <h3 className="text-3xl font-bold text-slate-700 dark:text-slate-200 mb-4">
                 Express your needs, watch AI magic unfold
               </h3>
-              <p className="text-gray-600 text-lg max-w-2xl mx-auto">
-                From complex research to creative tasks, see how QuestWhisper transforms your requests into powerful actions
+              <p className="text-gray-600 dark:text-slate-300 text-lg max-w-2xl mx-auto">
+                From complex research to creative tasks, see how QuestWhisper
+                transforms your requests into powerful actions
               </p>
             </div>
 
             <div className="grid md:grid-cols-2 gap-8 max-w-6xl mx-auto">
               {[
                 {
-                  voice: "Research AI trends and create a presentation for the team",
+                  voice:
+                    "Research AI trends and create a presentation for the team",
                   steps: [
                     "Search web sources",
                     "Extract key insights",
@@ -365,7 +380,8 @@ export default function Home() {
                   time: "~3 min",
                 },
                 {
-                  voice: "Create a data report with charts from our Q3 spreadsheet",
+                  voice:
+                    "Create a data report with charts from our Q3 spreadsheet",
                   steps: [
                     "Access Sheets data",
                     "Generate analysis",
@@ -391,17 +407,17 @@ export default function Home() {
                   whileInView={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.6, delay: index * 0.1 }}
                   viewport={{ once: true }}
-                  className="bg-white border border-gray-200 rounded-2xl p-6 hover:border-[#4f7269]/30 hover:shadow-lg transition-all duration-300 group"
+                  className="bg-white dark:bg-[#212124] border border-gray-200 dark:border-[#3B3B3B] rounded-2xl p-6 hover:border-[#4f7269]/30 hover:shadow-lg transition-all duration-300 group"
                 >
                   {/* Voice Command */}
                   <div className="mb-6">
                     <div className="flex items-center mb-3">
                       <div className="w-2 h-2 bg-[#4f7269] rounded-full mr-3"></div>
-                      <span className="text-xs uppercase tracking-wide text-gray-500 font-medium">
+                      <span className="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-300 font-medium">
                         You say
                       </span>
                     </div>
-                    <p className="text-gray-900 text-lg font-medium leading-relaxed">
+                    <p className="text-slate-700 dark:text-slate-200 text-lg font-medium leading-relaxed">
                       "{example.voice}"
                     </p>
                   </div>
@@ -410,7 +426,7 @@ export default function Home() {
                   <div className="mb-4">
                     <div className="flex items-center mb-3">
                       <div className="w-2 h-2 bg-gray-300 rounded-full mr-3"></div>
-                      <span className="text-xs uppercase tracking-wide text-gray-500 font-medium">
+                      <span className="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-300 font-medium">
                         QuestWhisper does
                       </span>
                     </div>
@@ -418,7 +434,7 @@ export default function Home() {
                       {example.steps.map((step, stepIndex) => (
                         <span
                           key={stepIndex}
-                          className="bg-gray-50 text-gray-700 px-3 py-1 rounded-full text-sm font-medium"
+                          className="bg-gray-50 dark:bg-[#3B3B3B]/50 text-slate-700 dark:text-slate-300 px-3 py-1 rounded-full text-sm font-medium"
                         >
                           {step}
                         </span>
@@ -428,7 +444,7 @@ export default function Home() {
 
                   {/* Time indicator */}
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center text-gray-500 text-sm">
+                    <div className="flex items-center text-gray-600 dark:text-gray-300 text-sm">
                       <svg
                         className="w-4 h-4 mr-2"
                         fill="none"
@@ -473,22 +489,24 @@ export default function Home() {
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
               viewport={{ once: true }}
-              className="lg:col-span-2 lg:row-span-2 bg-white border border-gray-200 rounded-2xl p-8 hover:shadow-lg hover:border-gray-300 transition-all duration-300 group cursor-pointer"
+              className="lg:col-span-2 lg:row-span-2 bg-white dark:bg-[#212124] dark:border-[#3B3B3B] border border-gray-200 rounded-2xl p-8 hover:shadow-lg hover:border-gray-300 dark:hover:border-[#3B3B3B] transition-all duration-300 group cursor-pointer"
             >
               <div className="mb-6">
-                <h3 className="text-2xl font-bold text-gray-900 mb-4">
+                <h3 className="text-2xl font-bold text-slate-700 dark:text-slate-200 mb-4">
                   Gmail Integration
                 </h3>
-                <p className="text-gray-600 mb-6 text-lg leading-relaxed">
+                <p className="text-slate-600 dark:text-slate-300 mb-6 text-lg leading-relaxed">
                   Manage your entire email workflow through voice commands.
                   Read, send, search, and organize emails effortlessly.
                 </p>
                 <div className="space-y-3 mb-6">
-                  <div className="text-sm text-gray-600">
+                  <div className="text-sm text-slate-600 dark:text-slate-300">
                     • Send emails with just one prompt
                   </div>
                 </div>
-                <div className="text-sm text-gray-500">Used by 15k people</div>
+                <div className="text-sm text-slate-600 dark:text-slate-300">
+                  Used by 15k people
+                </div>
               </div>
               <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
                 <svg
@@ -513,15 +531,15 @@ export default function Home() {
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.1 }}
               viewport={{ once: true }}
-              className="bg-white border border-gray-200 rounded-2xl p-6 hover:shadow-lg hover:border-gray-300 transition-all duration-300 group cursor-pointer"
+              className="bg-white border border-gray-200 dark:hover:border-[#3B3B3B] dark:bg-[#212124] dark:border-[#3B3B3B] rounded-2xl p-6 hover:shadow-lg hover:border-gray-300 transition-all duration-300 group cursor-pointer"
             >
-              <h3 className="text-lg font-bold text-gray-900 mb-4">
+              <h3 className="text-lg font-bold text-slate-700 dark:text-slate-200 mb-4">
                 Voice Commands
               </h3>
-              <p className="text-gray-600 text-sm mb-6 leading-relaxed">
+              <p className="text-slate-600 dark:text-slate-300 text-sm mb-6 leading-relaxed">
                 Natural speech recognition with lifelike AI responses.
               </p>
-              <div className="text-sm text-gray-500">Used by 8.9k people</div>
+              <div className="text-sm text-slate-400">Used by 8.9k people</div>
               <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
                 <svg
                   className="w-5 h-5 text-gray-400"
@@ -545,15 +563,15 @@ export default function Home() {
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.2 }}
               viewport={{ once: true }}
-              className="bg-white border border-gray-200 rounded-2xl p-6 hover:shadow-lg hover:border-gray-300 transition-all duration-300 group cursor-pointer"
+              className="bg-white border border-gray-200 dark:hover:border-[#3B3B3B] dark:bg-[#212124] dark:border-[#3B3B3B] rounded-2xl p-6 hover:shadow-lg hover:border-gray-300 transition-all duration-300 group cursor-pointer"
             >
-              <h3 className="text-lg font-bold text-gray-900 mb-4">
+              <h3 className="text-lg font-bold text-gray-700 dark:text-slate-200 mb-4">
                 Web Intelligence
               </h3>
-              <p className="text-gray-600 text-sm mb-6 leading-relaxed">
+              <p className="text-gray-600 dark:text-slate-300 text-sm mb-6 leading-relaxed">
                 Real-time web search and content extraction from any website.
               </p>
-              <div className="text-sm text-gray-500">Used by 12k people</div>
+              <div className="text-sm text-slate-400">Used by 12k people</div>
               <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
                 <svg
                   className="w-5 h-5 text-gray-400"
@@ -577,12 +595,12 @@ export default function Home() {
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.3 }}
               viewport={{ once: true }}
-              className="bg-white border border-gray-200 rounded-2xl p-6 hover:shadow-lg hover:border-gray-300 transition-all duration-300 group cursor-pointer relative"
+              className="bg-white border border-gray-200 dark:bg-[#212124] dark:border-[#3B3B3B] dark:hover:border-[#3B3B3B] rounded-2xl p-6 hover:shadow-lg hover:border-gray-300 transition-all duration-300 group cursor-pointer relative"
             >
-              <h3 className="text-lg font-bold text-gray-900 mb-4">
+              <h3 className="text-lg font-bold text-gray-700 dark:text-slate-200 mb-4">
                 Google Docs
               </h3>
-              <div className="text-sm text-gray-500">Used by 5.2k people</div>
+              <div className="text-sm text-slate-400">Used by 5.2k people</div>
               <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
                 <svg
                   className="w-5 h-5 text-gray-400"
@@ -606,12 +624,12 @@ export default function Home() {
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.4 }}
               viewport={{ once: true }}
-              className="bg-white border border-gray-200 rounded-2xl p-6 hover:shadow-lg hover:border-gray-300 transition-all duration-300 group cursor-pointer relative"
+              className="bg-white border border-gray-200 dark:bg-[#212124] dark:border-[#3B3B3B] dark:hover:border-[#3B3B3B] rounded-2xl p-6 hover:shadow-lg hover:border-gray-300 transition-all duration-300 group cursor-pointer relative"
             >
-              <h3 className="text-lg font-bold text-gray-900 mb-4">
+              <h3 className="text-lg font-bold text-slate-700 dark:text-slate-200 mb-4">
                 Presentations
               </h3>
-              <div className="text-sm text-gray-500">Used by 3.8k people</div>
+              <div className="text-sm text-slate-400">Used by 3.8k people</div>
               <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
                 <svg
                   className="w-5 h-5 text-gray-400"
@@ -635,17 +653,16 @@ export default function Home() {
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.5 }}
               viewport={{ once: true }}
-              className="lg:col-span-2 bg-gray-900 text-white rounded-2xl p-8 hover:shadow-lg hover:bg-gray-800 transition-all duration-300 group cursor-pointer relative"
+              className="lg:col-span-2 text-white rounded-2xl p-8 transition-all duration-300 group cursor-pointer relative"
             >
-              <h3 className="text-2xl font-bold text-white mb-4">
+              <h3 className="text-2xl font-bold text-slate-700 dark:text-slate-200 mb-4">
                 Full Google Workspace Access
               </h3>
-              <p className="text-gray-300 mb-6 leading-relaxed">
+              <p className="text-slate-600 dark:text-slate-300 mb-6 leading-relaxed">
                 Complete integration with your Google ecosystem. Access Drive
                 files, create documents, analyze sheets, schedule meetings - all
                 through natural conversation.
               </p>
-              <div className="text-sm text-gray-400">Used by 12.5k people</div>
               <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
                 <svg
                   className="w-5 h-5 text-gray-400"
@@ -669,16 +686,16 @@ export default function Home() {
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.6 }}
               viewport={{ once: true }}
-              className="bg-white border border-gray-200 rounded-2xl p-6 hover:shadow-lg hover:border-gray-300 transition-all duration-300 group cursor-pointer"
+              className="bg-white border border-gray-200 dark:bg-[#212124] dark:border-[#3B3B3B] dark:hover:border-[#3B3B3B] rounded-2xl p-6 hover:shadow-lg hover:border-gray-300 transition-all duration-300 group cursor-pointer"
             >
-              <h3 className="text-lg font-bold text-gray-900 mb-4">
+              <h3 className="text-lg font-bold text-slate-700 dark:text-slate-200 mb-4">
                 Smart Calendar
               </h3>
-              <p className="text-gray-600 text-sm mb-6 leading-relaxed">
+              <p className=" text-slate-600 dark:text-slate-300 text-sm mb-6 leading-relaxed">
                 Schedule meetings, find available times, and manage your
                 calendar through voice.
               </p>
-              <div className="text-sm text-gray-500">Used by 7.4k people</div>
+              <div className="text-sm text-slate-400">Used by 7.4k people</div>
               <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
                 <svg
                   className="w-5 h-5 text-gray-400"
@@ -702,16 +719,16 @@ export default function Home() {
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.7 }}
               viewport={{ once: true }}
-              className="bg-white border border-gray-200 rounded-2xl p-6 hover:shadow-lg hover:border-gray-300 transition-all duration-300 group cursor-pointer"
+              className="bg-white border border-gray-200 dark:bg-[#212124] dark:border-[#3B3B3B] dark:hover:border-[#3B3B3B] rounded-2xl p-6 hover:shadow-lg hover:border-gray-300 transition-all duration-300 group cursor-pointer"
             >
-              <h3 className="text-lg font-bold text-gray-900 mb-4">
+              <h3 className="text-lg font-bold  text-slate-700 dark:text-slate-200 mb-4">
                 Spreadsheet Analysis
               </h3>
-              <p className="text-gray-600 text-sm mb-6 leading-relaxed">
+              <p className="text-gray-600 dark:text-slate-300 text-sm mb-6 leading-relaxed">
                 Analyze data, create charts, and extract insights from your
                 spreadsheets.
               </p>
-              <div className="text-sm text-gray-500">Used by 4.3k people</div>
+              <div className="text-sm text-slate-400">Used by 4.3k people</div>
               <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
                 <svg
                   className="w-5 h-5 text-gray-400"
@@ -738,16 +755,16 @@ export default function Home() {
             viewport={{ once: true }}
             className="text-center"
           >
-            <div className="bg-gray-50 border border-gray-200 rounded-3xl py-16 px-8 lg:px-16">
+            <div className="bg-gray-50 border border-gray-200 dark:bg-[#212124] dark:border-[#3B3B3B] rounded-3xl py-16 px-8 lg:px-16">
               <div className="max-w-3xl mx-auto">
-                <h3 className="text-4xl lg:text-5xl font-bold text-gray-900 mb-6">
+                <h3 className="text-4xl lg:text-5xl font-bold text-slate-700 dark:text-slate-200 mb-6">
                   Ready to experience the future?
                 </h3>
-                <p className="text-xl text-gray-600 mb-10 leading-relaxed">
+                <p className="text-xl text-slate-600 dark:text-slate-300 mb-10 leading-relaxed">
                   Stop switching between apps. Stop manual tasks. Stop waiting
                   for answers.
                   <br />
-                  <span className="font-semibold text-gray-900">
+                  <span className="font-semibold  text-slate-700 dark:text-slate-200">
                     Start talking to your digital world.
                   </span>
                 </p>
@@ -760,7 +777,7 @@ export default function Home() {
                   Try QuestWhisper Now
                 </motion.button>
 
-                <div className="mt-8 flex items-center justify-center space-x-8 text-sm text-gray-500">
+                <div className="mt-8 flex items-center justify-center space-x-8 text-sm text-slate-600 dark:text-slate-300">
                   <div className="flex items-center">
                     <svg
                       className="w-4 h-4 mr-2 text-green-500"
@@ -811,31 +828,39 @@ export default function Home() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-white border-t border-gray-100 py-8">
+      <footer className="bg-white border-t border-gray-100 dark:border-[#3B3B3B] dark:bg-[#181818] py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
             <div className="flex items-center space-x-2">
-              <Image
-                src="/whisper_logo.png"
-                alt="QuestWhisper Logo"
-                width={24}
-                height={24}
-                className="rounded"
-              />
-              <span className="text-sm text-gray-600">
+              <div className="relative w-[24px] h-[24px]">
+                <Image
+                  src="/whisper_logo.png"
+                  alt="QuestWhisper"
+                  fill
+                  className="object-contain dark:collapse"
+                />
+
+                <Image
+                  src="/whisper_logo_dark.png"
+                  alt="QuestWhisper"
+                  fill
+                  className="object-contain collapse dark:visible"
+                />
+              </div>
+              <span className="text-sm  text-slate-600 dark:text-slate-300">
                 © 2025 QuestWhisper. All rights reserved.
               </span>
             </div>
             <div className="flex space-x-6">
               <a
                 href="/privacy-policy"
-                className="text-sm text-gray-600 hover:text-[#4f7269] transition-colors"
+                className="text-sm text-slate-600 dark:text-slate-300 hover:text-[#4f7269] hover:font-bold transition-colors"
               >
                 Privacy
               </a>
               <a
                 href="/terms-of-service"
-                className="text-sm text-gray-600 hover:text-[#4f7269] transition-colors"
+                className="text-sm  text-slate-600 dark:text-slate-300 hover:text-[#4f7269] hover:font-bold transition-colors"
               >
                 Terms
               </a>
@@ -843,7 +868,7 @@ export default function Home() {
                 href="https://mail.google.com/mail/?view=cm&fs=1&to=support@iwhispered.com&su=QuestWhisper%20Support%20Request"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sm text-gray-600 hover:text-[#4f7269] transition-colors"
+                className="text-sm text-slate-600 dark:text-slate-300 hover:text-[#4f7269] hover:font-bold transition-colors"
               >
                 Support
               </a>

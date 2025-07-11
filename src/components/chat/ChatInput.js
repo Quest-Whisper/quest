@@ -273,7 +273,7 @@ export default function ChatInput({ onSend, isLoading, onVoiceMode }) {
 
   return (
     <form onSubmit={handleSubmit} className="w-full">
-      <div className="relative">
+      <div className="relative rounded-[30px] dark:bg-[#212124]">
         {/* File Previews */}
         <AnimatePresence>
           {filePreviews.length > 0 && (
@@ -281,16 +281,16 @@ export default function ChatInput({ onSend, isLoading, onVoiceMode }) {
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
-              className="mx-3 mb-2 p-3 rounded-lg border-b-[1px] border-gray-200 max-h-40 overflow-y-auto"
+              className="mx-3 mb-2 p-3 rounded-lg border-b-[1px] border-gray-200  dark:border-[#3B3B3B] max-h-40 overflow-y-auto"
             >
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-700">
+                <span className="text-sm font-medium text-gray-700  dark:text-slate-200">
                   {filePreviews.length} file{filePreviews.length > 1 ? 's' : ''} selected
                 </span>
                 {isUploadingFiles && (
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-gray-500 dark:text-slate-200">
                       Uploading {uploadProgress.current}/{uploadProgress.total}
                     </span>
                   </div>
@@ -304,7 +304,7 @@ export default function ChatInput({ onSend, isLoading, onVoiceMode }) {
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: 20 }}
-                    className="flex items-center gap-3 p-2 bg-white rounded-lg border-[1px] border-gray-300"
+                    className="flex items-center gap-3 p-2 bg-white dark:bg-[#3B3B3B] rounded-lg border-[1px] dark:border-0 border-gray-300"
                   >
                     <div className="flex-shrink-0">
                       {preview.category === 'image' && preview.previewUrl ? (
@@ -321,10 +321,10 @@ export default function ChatInput({ onSend, isLoading, onVoiceMode }) {
                     </div>
                     
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">
+                      <p className="text-sm font-medium text-gray-900  dark:text-slate-200 truncate">
                         {preview.displayName}
                       </p>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-gray-500  dark:text-slate-200">
                         {formatFileSize(preview.size)}
                       </p>
                     </div>
@@ -333,7 +333,7 @@ export default function ChatInput({ onSend, isLoading, onVoiceMode }) {
                       type="button"
                       onClick={() => handleRemoveFile(index)}
                       disabled={isUploadingFiles}
-                      className="p-1 text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
+                      className="p-1 text-gray-400 hover:bg-[#212124] hover:text-[#E1E8ED] bg-[#E1E8ED] dark:bg-[#212124] dark:hover:bg-[#E1E8ED] dark:hover:text-[#212124] rounded-full transition-colors disabled:opacity-50"
                     >
                       <XMarkIcon className="w-4 h-4" />
                     </button>
@@ -364,7 +364,7 @@ export default function ChatInput({ onSend, isLoading, onVoiceMode }) {
               className={`
                 w-full resize-none bg-transparent
                 ${isMobile ? "px-4 py-4 pr-4" : "px-4 py-3 pr-4"}
-                text-slate-800 placeholder-slate-400
+                text-slate-800 dark:text-[#E1E8ED] placeholder-slate-400
                 focus:outline-none
                 ${isMobile ? "text-base" : "text-sm"} leading-relaxed
                 transition-all duration-200
@@ -387,10 +387,11 @@ export default function ChatInput({ onSend, isLoading, onVoiceMode }) {
                 disabled={isLoading || isUploadingFiles}
                 className="relative group cursor-pointer"
               >
-                <div className="flex h-[32px] w-[32px] border border-[#CCD6DD] p-[6px] rounded-full bg-[#E1E8ED] hover:bg-[#CCD6DD] justify-center disabled:opacity-50 disabled:cursor-not-allowed">
+                <div className="group flex h-[32px] w-[32px] border border-[#CCD6DD] dark:border-0 p-[6px] rounded-full bg-[#E1E8ED] dark:bg-[#212124] hover:bg-[#3B3B3B] justify-center disabled:opacity-50 disabled:cursor-not-allowed">
                 <Image
                     src="/icons/clip_icon.png"
                     alt="attachments icon"
+                    className="dark:invert group-hover:invert"
                     width={16}
                     height={16}
                   />
@@ -408,10 +409,11 @@ export default function ChatInput({ onSend, isLoading, onVoiceMode }) {
                 onClick={handleVoiceMode} 
                 className="relative group cursor-pointer"
               >
-                <div className="flex h-[32px] w-[32px] border border-[#CCD6DD] p-[6px] rounded-full bg-[#E1E8ED] hover:bg-[#CCD6DD] justify-center">
+                <div className="group flex h-[32px] w-[32px] border border-[#CCD6DD] dark:border-0 p-[6px] rounded-full bg-[#E1E8ED] dark:bg-[#212124] hover:bg-[#3B3B3B] justify-center">
                   <Image
                     src="/icons/waveform_icon.png"
                     alt="waveform icon"
+                    className="dark:invert group-hover:invert"
                     width={16}
                     height={16}
                   />
@@ -446,8 +448,8 @@ export default function ChatInput({ onSend, isLoading, onVoiceMode }) {
                 transition-all duration-300 ease-out
                 ${
                   isLoading || isUploadingFiles || (!message.trim() && selectedFiles.length === 0)
-                    ? "bg-slate-100 cursor-not-allowed"
-                    : "bg-white border-2 border-slate-200 shadow-sm group-hover:shadow-md group-hover:border-slate-300"
+                    ? "bg-[#E1E8ED] dark:bg-[#3B3B3B] cursor-not-allowed"
+                    : "bg-[#3B3B3B] dark:bg-[#3B3B3B] border-2 border-slate-200 shadow-sm group-hover:shadow-md group-hover:border-slate-300"
                 }
               `}
                   whileHover={
@@ -511,7 +513,7 @@ export default function ChatInput({ onSend, isLoading, onVoiceMode }) {
                         flex items-center justify-center
                         ${
                           !message.trim() && selectedFiles.length === 0
-                            ? "text-slate-400"
+                            ? "text-slate-400 dark:text-slate-500"
                             : "text-slate-700 group-hover:text-slate-900"
                         }
                       `}
@@ -557,7 +559,7 @@ export default function ChatInput({ onSend, isLoading, onVoiceMode }) {
         </div>
 
         {/* Focus ring */}
-        <div className="absolute inset-0 rounded-[30px] shadow-sm border-[0.5px] border-gray-300 pointer-events-none" />
+        <div className="absolute inset-0 rounded-[30px] shadow-sm border-[1px] border-gray-300 dark:border-[#3B3B3B] pointer-events-none" />
       </div>
       
       {/* Hidden file input - Allow multiple files */}

@@ -2,9 +2,11 @@
 
 import React from "react";
 import { motion } from "framer-motion";
-import { ShareIcon } from "@heroicons/react/24/outline";
-import Image from "next/image";
+import { LuCopy } from "react-icons/lu";
 import { copyToClipboard } from "../../utils/shareUtils";
+import { IoShareSocialOutline } from "react-icons/io5";
+import { MdOutlineSpeaker } from "react-icons/md";
+import { ClipboardDocumentIcon, ClipboardIcon, SpeakerWaveIcon } from "@heroicons/react/24/solid";
 
 export default function ActionButtons({ 
   message,
@@ -37,16 +39,11 @@ export default function ActionButtons({
       {/* Copy button - available for all messages */}
       <motion.button 
         onClick={handleCopy} 
-        className="p-1.5 rounded-md hover:bg-slate-100 transition-colors"
+        className="cursor-pointer p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-[#3B3B3B] dark:hover:text-slate-200 text-slate-500 hover:text-slate-700  transition-all duration-200"
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
       >
-        <Image
-          src="/icons/copy_icon.png"
-          alt="Copy content"
-          width={20}
-          height={20}
-        />
+        <LuCopy  alt="Copy content" className="w-5 h-5"/>
       </motion.button>
 
       {/* AI message specific actions */}
@@ -81,7 +78,7 @@ export default function ActionButtons({
           {/* Audio play/stop button */}
           <motion.button
             onClick={onAudioToggle}
-            className="p-1.5 rounded-md hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-all duration-200"
+            className="cursor-pointer p-1.5 rounded-md dark:hover:bg-[#3B3B3B] dark:hover:text-slate-200 hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-all duration-200"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             title={isPlaying ? "Stop audio" : "Play audio"}
@@ -98,24 +95,20 @@ export default function ActionButtons({
               </div>
             ) : (
               // Play button
-              <Image
-                src="/icons/volume_icon.png"
-                alt="Play audio"
-                width={24}
-                height={24}
-              />
+
+              <MdOutlineSpeaker alt="Play audio" className="w-5 h-5"/>
             )}
           </motion.button>
 
           {/* Share button */}
           <motion.button
             onClick={onShare}
-            className="p-1.5 rounded-md hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-all duration-200"
+            className="cursor-pointer p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-[#3B3B3B] dark:hover:text-slate-200 text-slate-500 hover:text-slate-700  transition-all duration-200"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             title="Share response"
           >
-            <ShareIcon className="w-5 h-5" />
+            <IoShareSocialOutline alt="Share response" className="w-5 h-5" />
           </motion.button>
         </>
       )}
