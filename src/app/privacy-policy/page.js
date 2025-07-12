@@ -211,7 +211,7 @@ export default function PrivacyPolicyPage() {
               </h2>
               <div className="space-y-4">
                 <h3 className="text-xl font-semibold text-slate-700 dark:text-slate-200">
-                {"a)"} Personal Information
+                  {"a)"} Personal Information
                 </h3>
                 <p className="text-slate-700 dark:text-slate-200 leading-relaxed">
                   When you use QuestWhisper, we collect the following personal
@@ -237,7 +237,7 @@ export default function PrivacyPolicyPage() {
                 </ul>
 
                 <h3 className="text-xl font-semibold text-slate-700 dark:text-slate-200">
-                {"b)"} Technical Information
+                  {"b)"} Technical Information
                 </h3>
                 <ul className="list-disc pl-6 space-y-2 text-slate-700 dark:text-slate-200">
                   <li>
@@ -255,7 +255,7 @@ export default function PrivacyPolicyPage() {
                 </ul>
 
                 <h3 className="text-xl font-semibold text-slate-700 dark:text-slate-200">
-                {"c)"} Content You Share
+                  {"c)"} Content You Share
                 </h3>
                 <ul className="list-disc pl-6 space-y-2 text-slate-700 dark:text-slate-200">
                   <li>
@@ -281,7 +281,7 @@ export default function PrivacyPolicyPage() {
               </h2>
               <div className="space-y-4">
                 <h3 className="text-xl font-semibold text-slate-700 dark:text-slate-200">
-                {"a)"} Primary Uses
+                  {"a)"} Primary Uses
                 </h3>
                 <p className="text-slate-700 dark:text-slate-200 leading-relaxed">
                   We use your information to:
@@ -310,7 +310,7 @@ export default function PrivacyPolicyPage() {
                 </ul>
 
                 <h3 className="text-xl font-semibold text-slate-700 dark:text-slate-200">
-                {"b)"} Service Improvement
+                  {"b)"} Service Improvement
                 </h3>
                 <ul className="list-disc pl-6 space-y-2 text-slate-700 dark:text-slate-200">
                   <li>
@@ -332,7 +332,7 @@ export default function PrivacyPolicyPage() {
                 </ul>
 
                 <h3 className="text-xl font-semibold text-slate-700 dark:text-slate-200">
-                {"c)"} Legal Compliance
+                  {"c)"} Legal Compliance
                 </h3>
                 <ul className="list-disc pl-6 space-y-2 text-slate-700 dark:text-slate-200">
                   <li>Comply with applicable laws and regulations</li>
@@ -351,7 +351,7 @@ export default function PrivacyPolicyPage() {
               </h2>
               <div className="space-y-4">
                 <h3 className="text-xl font-semibold text-slate-700 dark:text-slate-200">
-                {"a)"} Security Measures
+                  {"a)"} Security Measures
                 </h3>
                 <p className="text-slate-700 dark:text-slate-200 leading-relaxed">
                   We implement comprehensive security measures to protect your
@@ -381,7 +381,7 @@ export default function PrivacyPolicyPage() {
                 </ul>
 
                 <h3 className="text-xl font-semibold text-slate-700 dark:text-slate-200">
-                {"b)"} Data Storage Locations
+                  {"b)"} Data Storage Locations
                 </h3>
                 <p className="text-slate-700 dark:text-slate-200 leading-relaxed">
                   Your data is stored in secure data centers with the following
@@ -416,7 +416,7 @@ export default function PrivacyPolicyPage() {
               </h2>
               <div className="space-y-4">
                 <h3 className="text-xl font-semibold text-slate-700 dark:text-slate-200">
-                {"a)"} Authentication Providers
+                  {"a)"} Authentication Providers
                 </h3>
                 <p className="text-slate-700 dark:text-slate-200 leading-relaxed">
                   We use secure third-party authentication services to verify
@@ -434,7 +434,7 @@ export default function PrivacyPolicyPage() {
                 </ul>
 
                 <h3 className="text-xl font-semibold text-slate-700 dark:text-slate-200">
-                {"b)"} AI and ML Services
+                  {"b)"} AI and ML Services
                 </h3>
                 <p className="text-slate-700 dark:text-slate-200 leading-relaxed">
                   Our AI capabilities are powered by:
@@ -455,7 +455,7 @@ export default function PrivacyPolicyPage() {
                 </ul>
 
                 <h3 className="text-xl font-semibold text-slate-700 dark:text-slate-200">
-                {"c)"} Data Sharing Policies
+                  {"c)"} Data Sharing Policies
                 </h3>
                 <p className="text-slate-700 dark:text-slate-200 leading-relaxed">
                   We only share data with third parties when:
@@ -481,7 +481,7 @@ export default function PrivacyPolicyPage() {
               </h2>
               <div className="space-y-4">
                 <h3 className="text-xl font-semibold text-slate-700 dark:text-slate-200">
-                {"a)"} Limited Use Compliance:
+                  {"a)"} Limited Use Compliance:
                 </h3>
                 <p className="text-slate-700 dark:text-slate-200 leading-relaxed">
                   QuestWhisper complies with the{" "}
@@ -497,7 +497,7 @@ export default function PrivacyPolicyPage() {
                 </p>
 
                 <h3 className="text-xl font-semibold text-slate-700 dark:text-slate-200">
-                {"b)"} Access and Permissions
+                  {"b)"} Access and Permissions
                 </h3>
                 <p className="text-slate-700 dark:text-slate-200 leading-relaxed">
                   When you authorize Google Workspace integration, we access:
@@ -526,19 +526,23 @@ export default function PrivacyPolicyPage() {
                 </ul>
 
                 <h3 className="text-xl font-semibold text-slate-700 dark:text-slate-200">
-                {"c)"} Data Handling
+                  {"c)"} Data Handling
                 </h3>
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                   <p className="text-blue-800 text-sm">
-                    <strong>Important:</strong> We do not store your Google
-                    Workspace data. All access is temporary and occurs only
-                    during your active session to fulfill your specific
-                    requests. We may store anonymized session history or
-                    generated summaries that help your AI assistant continue
-                    your conversations. These may include non-sensitive metadata
-                    like links to documents created through the service, but
-                    never include Gmail messages, document contents, calendar
-                    events, or other private data retrieved from Google APIs.
+                    <strong>Important:</strong> QuestWhisper complies with the
+                    Google Workspace API User Data and Developer Policy’s
+                    Limited‑Use requirements. We do not use, store, or transfer
+                    any data obtained through Workspace APIs to train or improve
+                    generalized or foundational AI/ML models. Our usage is
+                    limited to personalized, user‑initiated features only.
+                  </p>
+                  <p className="text-blue-800 text-sm mt-[15px]">
+                    <strong>Learn More:</strong>{" "}
+                    <a className="font-medium underline" href="https://developers.google.com/workspace/workspace-api-user-data-developer-policy">Workspace API User Data & Developer Policy &</a>
+                    <a className="ml-[5px] font-medium underline" href="https://developers.google.com/workspace/workspace-api-user-data-developer-policy#limited-use">
+                      Limited Use policy details
+                    </a>
                   </p>
                 </div>
                 <ul className="list-disc pl-6 space-y-2 text-slate-700 dark:text-slate-200">
@@ -561,7 +565,7 @@ export default function PrivacyPolicyPage() {
                 </ul>
 
                 <h3 className="text-xl font-semibold text-slate-700 dark:text-slate-200">
-                {"d)"} Revoking Access
+                  {"d)"} Revoking Access
                 </h3>
                 <p className="text-slate-700 dark:text-slate-200 leading-relaxed">
                   You can revoke our access to your Google Workspace data at any
@@ -582,7 +586,7 @@ export default function PrivacyPolicyPage() {
               </h2>
               <div className="space-y-4">
                 <h3 className="text-xl font-semibold text-slate-700 dark:text-slate-200">
-                {"a)"} Voice Input Processing
+                  {"a)"} Voice Input Processing
                 </h3>
                 <p className="text-slate-700 dark:text-slate-200 leading-relaxed">
                   Our voice features work as follows:
@@ -607,7 +611,7 @@ export default function PrivacyPolicyPage() {
                 </ul>
 
                 <h3 className="text-xl font-semibold text-slate-700 dark:text-slate-200">
-                {"b)"} Text-to-Speech Output
+                  {"b)"} Text-to-Speech Output
                 </h3>
                 <ul className="list-disc pl-6 space-y-2 text-slate-700 dark:text-slate-200">
                   <li>
@@ -641,7 +645,7 @@ export default function PrivacyPolicyPage() {
               </h2>
               <div className="space-y-4">
                 <h3 className="text-xl font-semibold text-slate-700 dark:text-slate-200">
-                {"a)"} Public Sharing
+                  {"a)"} Public Sharing
                 </h3>
                 <p className="text-slate-700 dark:text-slate-200 leading-relaxed">
                   When you choose to share AI conversations publicly:
@@ -670,7 +674,7 @@ export default function PrivacyPolicyPage() {
                 </ul>
 
                 <h3 className="text-xl font-semibold text-slate-700 dark:text-slate-200">
-                {"b)"} Content Control
+                  {"b)"} Content Control
                 </h3>
                 <ul className="list-disc pl-6 space-y-2 text-slate-700 dark:text-slate-200">
                   <li>
@@ -704,7 +708,7 @@ export default function PrivacyPolicyPage() {
               </h2>
               <div className="space-y-4">
                 <h3 className="text-xl font-semibold text-slate-700 dark:text-slate-200">
-                {"a)"} Essential Cookies
+                  {"a)"} Essential Cookies
                 </h3>
                 <p className="text-slate-700 dark:text-slate-200 leading-relaxed">
                   We use essential cookies to:
@@ -725,7 +729,7 @@ export default function PrivacyPolicyPage() {
                 </ul>
 
                 <h3 className="text-xl font-semibold text-slate-700 dark:text-slate-200">
-                {"b)"} Analytics and Performance
+                  {"b)"} Analytics and Performance
                 </h3>
                 <ul className="list-disc pl-6 space-y-2 text-slate-700 dark:text-slate-200">
                   <li>
@@ -743,7 +747,7 @@ export default function PrivacyPolicyPage() {
                 </ul>
 
                 <h3 className="text-xl font-semibold text-slate-700 dark:text-slate-200">
-                {"c)"} Cookie Management
+                  {"c)"} Cookie Management
                 </h3>
                 <p className="text-slate-700 dark:text-slate-200 leading-relaxed">
                   You can control cookies through your browser settings, but
@@ -760,7 +764,7 @@ export default function PrivacyPolicyPage() {
               </h2>
               <div className="space-y-4">
                 <h3 className="text-xl font-semibold text-slate-700 dark:text-slate-200">
-                {"a)"} Retention Periods
+                  {"a)"} Retention Periods
                 </h3>
                 <ul className="list-disc pl-6 space-y-2 text-slate-700 dark:text-slate-200">
                   <li>
@@ -786,7 +790,7 @@ export default function PrivacyPolicyPage() {
                 </ul>
 
                 <h3 className="text-xl font-semibold text-slate-700 dark:text-slate-200">
-                {"b)"} Data Deletion
+                  {"b)"} Data Deletion
                 </h3>
                 <p className="text-slate-700 dark:text-slate-200 leading-relaxed">
                   We provide options for data deletion:
@@ -815,7 +819,7 @@ export default function PrivacyPolicyPage() {
               </h2>
               <div className="space-y-4">
                 <h3 className="text-xl font-semibold text-slate-700 dark:text-slate-200">
-                {"a)"} Data Access Rights
+                  {"a)"} Data Access Rights
                 </h3>
                 <p className="text-slate-700 dark:text-slate-200 leading-relaxed">
                   You have the right to:
@@ -843,7 +847,7 @@ export default function PrivacyPolicyPage() {
                 </ul>
 
                 <h3 className="text-xl font-semibold text-slate-700 dark:text-slate-200">
-                {"b)"} Control Options
+                  {"b)"} Control Options
                 </h3>
                 <ul className="list-disc pl-6 space-y-2 text-slate-700 dark:text-slate-200">
                   <li>
@@ -865,7 +869,7 @@ export default function PrivacyPolicyPage() {
                 </ul>
 
                 <h3 className="text-xl font-semibold text-slate-700 dark:text-slate-200">
-                {"c)"} Exercising Your Rights
+                  {"c)"} Exercising Your Rights
                 </h3>
                 <p className="text-slate-700 dark:text-slate-200 leading-relaxed">
                   To exercise your rights, contact us through our support
@@ -914,7 +918,7 @@ export default function PrivacyPolicyPage() {
               </p>
               <div className="space-y-4">
                 <h3 className="text-xl font-semibold text-slate-700 dark:text-slate-200">
-                {"a)"} Transfer Safeguards
+                  {"a)"} Transfer Safeguards
                 </h3>
                 <ul className="list-disc pl-6 space-y-2 text-slate-700 dark:text-slate-200">
                   <li>
