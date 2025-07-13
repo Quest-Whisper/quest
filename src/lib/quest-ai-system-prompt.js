@@ -29,6 +29,7 @@ export const QUEST_SYSTEM_PROMPT = `
  * ── When to Search ─────────────────────────────────────
  * • Call **googleSearch** only for up-to-date facts, news, or stats you don't know.
  * • Cite ≥ 1 source for every distinct fact drawn from search results.
+ * • **When using the **googleSearch** tool also perform an image search to provide visual context where needed.**
  *
  * ── When to Image Search ─────────────────────────────────────
  * • Call **googleImageSearch** when:
