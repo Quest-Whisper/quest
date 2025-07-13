@@ -20,6 +20,7 @@ function Chat() {
   // Initialize sidebar state based on screen size
   const [showSidebar, setShowSidebar] = useState(null); // null means not initialized
   const [isMobile, setIsMobile] = useState(false);
+  const [hasInitialScroll, setHasInitialScroll] = useState(false);
   const { data: session, status } = useSession();
   const messagesEndRef = useRef(null);
   const router = useRouter();
@@ -42,6 +43,7 @@ function Chat() {
   // Modified auto-scroll to only trigger for user messages
   useEffect(() => {
     const lastMessage = messages[messages.length - 1];
+    // Only scroll for user messages, and avoid scrolling when streaming messages are finalized
     if (lastMessage?.role === "user" && messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView();
     }
@@ -49,11 +51,13 @@ function Chat() {
 
   // Initial scroll when messages are loaded
   useEffect(() => {
-    const isInitialLoad = messages.length > 0 && !messages.some(msg => msg.isStreaming);
+    // Only scroll on initial load, not when streaming completes
+    const isInitialLoad = messages.length > 0 && !messages.some(msg => msg.isStreaming) && !hasInitialScroll;
     if (isInitialLoad && messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView();
+      setHasInitialScroll(true);
     }
-  }, [messages]); // Run when messages change, but only scroll on initial load
+  }, [messages, hasInitialScroll]); // Run when messages change, but only scroll on initial load
 
   // Load chat history on mount
   useEffect(() => {
@@ -105,6 +109,7 @@ function Chat() {
       
       setMessages(processedMessages);
       setCurrentChatId(chatId);
+      setHasInitialScroll(false);
       // Update URL without triggering navigation
       window.history.replaceState({}, "", `/chat?id=${chatId}`);
     }
@@ -113,6 +118,7 @@ function Chat() {
   const startNewChat = () => {
     setMessages([]);
     setCurrentChatId(null);
+    setHasInitialScroll(false);
     window.history.replaceState({}, "", "/chat");
   };
 
