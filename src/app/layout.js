@@ -10,13 +10,20 @@ const rubik = Rubik({
   subsets: ["latin"],
 });
 
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: 'cover',
+};
+
 export const metadata = {
   title: "Quest Whisper - Your AI Companion",
   description: "Experience thoughtful conversations with voice capabilities and personalized assistance. Manage Google Workspace, search the web, and get real-time information through natural voice commands.",
   authors: [{ name: "QuestWhisper Team" }],
   creator: "QuestWhisper",
   publisher: "QuestWhisper",
-  viewport: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover",
   openGraph: {
     type: 'website',
     locale: 'en_US',

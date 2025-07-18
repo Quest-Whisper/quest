@@ -107,20 +107,24 @@ export default function LoginPage() {
           src="/ai_login_banner.png"
           alt="AI generated banner"
           layout="fill"
-          objectFit="cover"
+          className="h-[1080px] w-[1080px] bg-[#000]"
+          objectFit="contain"
           priority
         />
-
-        <div className="flex bg-black h-[100vh] w-[100%] p-[50px] justify-center items-center">
-          <div className="bg-gradient-to-br from-white/10 to-white/5 max-w-[720px]">
-            <div className="left-12 right-12 p-8 bg-white/80 backdrop-blur-sm rounded-xl">
-              <h3 className="text-2xl font-bold text-gray-800 mb-2">Prompt</h3>
-              <p className="text-gray-600">
-              A high-resolution grid of diverse, stylized cartoon avatars. Each avatar is a unique character with a 'chibi' aesthetic, featuring expressive eyes and simplified, rounded forms, rendered in clean vector art with bold outlines. The characters should include recognizable pop culture parodies and original designs, inspired by styles seen in The Simpsons, South Park, and Family Guy, but adapted to this unique avatar art style. Each avatar is set against a vibrant, highly saturated, solid-colored square background. The squares are arranged in a grid, creating a sense of variety, showcasing a collection of distinct and playful personalities.
-              </p>
-            </div>
-          </div>
-        </div>
+        {/* Background preview image */}
+        <Image
+          className=" inset-0 opacity-30 filter blur-2xl"
+          src="/ai_login_banner.png"
+          initial={{ opacity: 0 }}
+          layout="fill"
+          animate={{ opacity: 0.3 }}
+          exit={{ opacity: 0 }}
+          style={{
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            transform: "scale(1.1)",
+          }}
+        />
       </div>
     </div>
   );

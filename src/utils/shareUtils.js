@@ -166,20 +166,34 @@ export function getSharePlatforms() {
 // Handle image download
 export async function downloadImage(imageUrl, prompt, onSuccess) {
   try {
+    // 1. Fetch the image data
+    const response = await fetch(imageUrl);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const blob = await response.blob();
+    
+    // 2. Create a temporary URL for the blob
+    const blobUrl = URL.createObjectURL(blob);
+
+    // 3. Create and configure the download link
     const link = document.createElement('a');
-    link.href = imageUrl;
-    const filename = prompt 
-      ? `ai-image-${prompt.slice(0, 30).replace(/[^a-z0-9]/gi, '-')}.png`
-      : `ai-image-${Date.now()}.png`;
-    link.download = filename;
+    link.href = blobUrl;
+    const safePrompt = prompt
+      ? prompt.slice(0, 30).replace(/[^a-z0-9]/gi, '-')
+      : Date.now().toString();
+    link.download = `ai-image-${safePrompt}.png`;
+
+    // 4. Append, click, and clean up
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    
-    if (onSuccess) onSuccess();
+
+    // 5. Revoke the blob URL to free memory
+    URL.revokeObjectURL(blobUrl);
+
+    onSuccess?.();
     toast.success('Image downloaded successfully!');
   } catch (error) {
     console.error('Download error:', error);
     toast.error('Failed to download image');
   }
-} 
+}

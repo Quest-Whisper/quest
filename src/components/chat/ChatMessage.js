@@ -194,7 +194,7 @@ export default function ChatMessage({
             <motion.div
               className={`${
                 isUser
-                  ? "bg-slate-200 dark:bg-[#3B3B3B] rounded-3xl px-4 pt-[12px] max-w-[70%] flex items-center"
+                  ? "bg-slate-100 dark:bg-[#3B3B3B] rounded-3xl px-4 pt-[12px] max-w-[70%] flex items-center"
                   : isError && !isRetryableError
                   ? "bg-red-50 border border-red-200 text-red-800 rounded-xl px-4 py-3"
                   : "w-full"
@@ -214,7 +214,7 @@ export default function ChatMessage({
               layout={!isStreaming} // Disable layout animation during streaming
             >
               {/* Display search result images */}
-              {hasImages && <SearchResultImages images={images} />}
+              {hasImages && !isImageGeneration && <SearchResultImages images={images} />}
 
               {/* Display generated image */}
               {isImageGeneration && (
@@ -317,7 +317,7 @@ export default function ChatMessage({
               ) : (
                 <div className="flex flex-col">
                   <span className="mb-[12px] dark:text-slate-200">
-                    {removeSources(message.content)}
+                    {message.content}
                   </span>
                 </div>
               )}
