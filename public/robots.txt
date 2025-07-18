@@ -1,0 +1,25 @@
+User-agent: *
+Allow: /
+
+# Allow search engines to crawl all pages
+Allow: /privacy-policy
+Allow: /terms-of-service
+
+# Disallow sensitive areas
+Disallow: /api/
+Disallow: /_next/
+Disallow: /admin/
+Disallow: /auth/error
+
+# Allow important static assets
+Allow: /whisper_logo.png
+Allow: /whisper_logo_dark.png
+Allow: /og_banner.png
+Allow: /banner.jpg
+Allow: /banner2.jpg
+
+# Crawl delay (optional - helps with server load)
+Crawl-delay: 1
+
+# Sitemap location
+Sitemap: https://iwhispered.com/sitemap.xml 
