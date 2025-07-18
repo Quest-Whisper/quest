@@ -10,9 +10,7 @@ const nextConfig = {
         unoptimized: true, // Disable image optimization for static images
       },
     // Firebase App Hosting optimizations
-    experimental: {
-      serverComponentsExternalPackages: ["@google/genai"],
-    },
+    serverExternalPackages: ["@google/genai"],
     // Ensure proper streaming for Firebase
     async headers() {
       return [
@@ -66,7 +64,7 @@ const nextConfig = {
         },
         // Cache static assets
         {
-          source: "/(.*\\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot))",
+          source: "/:path*.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)",
           headers: [
             {
               key: "Cache-Control",
