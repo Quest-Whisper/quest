@@ -15,8 +15,7 @@ Disallow: /auth/error
 Allow: /whisper_logo.png
 Allow: /whisper_logo_dark.png
 Allow: /og_banner.png
-Allow: /banner.jpg
-Allow: /banner2.jpg
+
 
 # Crawl delay (optional - helps with server load)
 Crawl-delay: 1
