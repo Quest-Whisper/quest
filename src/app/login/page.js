@@ -117,6 +117,7 @@ export default function LoginPage() {
           src="/ai_login_banner.png"
           initial={{ opacity: 0 }}
           layout="fill"
+          alt="An African family eating around a campfire, in the whimsical and warm style of Studio Ghibli. The smoke from the campfire subtly spells out the word Whisper"
           animate={{ opacity: 0.3 }}
           exit={{ opacity: 0 }}
           style={{
