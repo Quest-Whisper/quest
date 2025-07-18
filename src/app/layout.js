@@ -66,10 +66,7 @@ export const metadata = {
   metadataBase: new URL('https://iwhispered.com'),
   alternates: {
     canonical: 'https://iwhispered.com',
-  },
-  verification: {
-    google: 'your-google-verification-code', // Add your Google Search Console verification code
-  },
+  }
 };
 
 
