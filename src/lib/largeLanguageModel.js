@@ -1898,6 +1898,13 @@ When using generateImageWithReference, use the URL and type from the attachments
       toolConfig: {
         functionCallingConfig: { mode: FunctionCallingConfigMode.AUTO },
       },
+      thinkingConfig: {
+        thinkingBudget: -1,
+        // Turn off thinking:
+        // thinkingBudget: 0
+        // Turn on dynamic thinking:
+        // thinkingBudget: -1
+      },
     },
     history,
   });

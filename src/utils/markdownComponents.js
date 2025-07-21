@@ -107,7 +107,7 @@ export const markdownComponents = {
   ),
   li: ({ children }) => <li className="leading-relaxed mb-2">{children}</li>,
   blockquote: ({ children }) => (
-    <blockquote className="border-l-4 border-blue-300 pl-6 italic text-slate-600 my-6 bg-blue-50/70 py-4 rounded-r-lg shadow-sm">
+    <blockquote className="border-l-4 border-blue-300 pl-6 italic text-slate-600 my-6 bg-blue-50/70 dark:bg-[#3B3B3B]/90 py-4 rounded-r-lg">
       {children}
     </blockquote>
   ),
