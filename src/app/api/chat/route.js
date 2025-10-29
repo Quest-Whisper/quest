@@ -51,14 +51,25 @@ export async function GET(request) {
       );
     }
 
+    // Get pagination parameters from URL
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get('page')) || 1;
+    const limit = parseInt(searchParams.get('limit')) || 25;
+    const skip = (page - 1) * limit;
+
     // Connect to MongoDB
     await connectToDatabase();
 
-    // Get all chat instances for the user
+    // Get paginated chat instances for the user
     const chats = await Chat.find({ userId: session.user.id })
       .sort({ updatedAt: -1 })
       .select('_id title messages createdAt updatedAt')
+      .skip(skip)
+      .limit(limit)
       .lean();
+
+    // Get total count for pagination info
+    const totalChats = await Chat.countDocuments({ userId: session.user.id });
 
     // Format the response
     const formattedChats = chats.map(chat => ({
@@ -70,7 +81,16 @@ export async function GET(request) {
       messageCount: chat.messages.length
     }));
 
-    return NextResponse.json({ chats: formattedChats });
+    return NextResponse.json({ 
+      chats: formattedChats,
+      pagination: {
+        page,
+        limit,
+        total: totalChats,
+        hasMore: skip + limit < totalChats,
+        totalPages: Math.ceil(totalChats / limit)
+      }
+    });
   } catch (error) {
     console.error("Error fetching chats:", error);
     return NextResponse.json(

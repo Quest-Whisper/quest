@@ -1,7 +1,7 @@
 // components/LiveVoiceChat.jsx
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import {
   ActivityHandling,
   FunctionCallingConfigMode,
@@ -19,6 +19,12 @@ export default function LiveVoiceChat({ onClose }) {
   const [connected, setConnected] = useState(false);
   const [recording, setRec] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
+  const userSpeakingRef = useRef(false);
+  const speechSilenceTimeoutRef = useRef(null);
+  const playbackAudioCtxRef = useRef(null);
+  const playbackCursorRef = useRef(null);
+  const activePlaybackSourcesRef = useRef(new Set());
+  const didConnect = useRef(false);
 
   const sessionRef = useRef(null);
   const audioCtxRef = useRef(null);
@@ -61,28 +67,31 @@ Email: ${session.user.email}
 
   // 2) Open Gemini Live WebSocket when we have a token
   useEffect(() => {
-    if (!token) return;
+    if (!token || didConnect.current) return;
+    didConnect.current = true;
 
     const now = getCurrentDateTime();
 
     const ai = new GoogleGenAI({ apiKey: token, apiVersion: "v1alpha" });
     ai.live
       .connect({
-        model: "gemini-2.0-flash-live-001",
+        model: "gemini-2.5-flash-preview-native-audio-dialog",
         config: {
-          speechConfig: {
-            voiceConfig: { prebuiltVoiceConfig: { voiceName: "Charon" } },
-          },
+           languageCode: "en-US",
+           speechConfig: {
+             voiceConfig: { prebuiltVoiceConfig: { voiceName: "Charon" } },
+           },
           tools: [
             { googleSearch: {} }, // ← this hooks in the Google Search tool
           ],
           //   // 2) If you’re also doing function calls, keep your declarations:
           functionDeclarations: [],
           toolConfig: {
+            languageCode: "en-US",
             functionCallingConfig: { mode: FunctionCallingConfigMode.ANY },
-            singleUtterance: true,
+            singleUtterance: false,
           },
-          responseModalities: [Modality.AUDIO],
+           responseModalities: [Modality.AUDIO],
 
           systemInstruction: QUEST_VOICE_SYSTEM_PROMPT.replace(
             "%USERDETAILS%",
@@ -92,10 +101,10 @@ Email: ${session.user.email}
           realtimeInputConfig: {
             automaticActivityDetection: {
               disabled: false,
-              //   startOfSpeechSensitivity: "LOW", // values: VERY_LOW, LOW, MEDIUM, HIGH, VERY_HIGH
-              //   endOfSpeechSensitivity: "MEDIUM",
-              //   prefixPaddingMs: 250, // how much leading audio the server buffers before “start”
-              //   silenceDurationMs: 200,
+              startOfSpeechSensitivity: "START_SENSITIVITY_HIGH", // values: START_SENSITIVITY_LOW, START_SENSITIVITY_HIGH
+              endOfSpeechSensitivity: "END_SENSITIVITY_LOW",
+              prefixPaddingMs: 200, // how much leading audio the server buffers before start
+              silenceDurationMs: 250,
             }, // ensure VAD is on
             activityHandling: ActivityHandling.START_OF_ACTIVITY_INTERRUPTS,
           },
@@ -105,8 +114,8 @@ Email: ${session.user.email}
             setConnected(true);
           },
           onerror: (e) => console.error("Socket error:", e),
-          onclose: () => {
-            console.log("❌ Disconnected");
+          onclose: (e) => {
+            console.log(`❌ Disconnected (code=${e.code}, reason=${e.reason})`);
             setConnected(false);
             isStreaming.current = false;
             cleanupAudioGraph();
@@ -124,6 +133,11 @@ Email: ${session.user.email}
         startVoice();
       })
       .catch(console.error);
+
+      return () => {
+        didConnect.current = false;
+        try { sessionRef.current?.close(); } catch {}
+      };
   }, [token]);
 
   // 3) Start streaming mic → Gemini
@@ -133,13 +147,21 @@ Email: ${session.user.email}
     const sess = sessionRef.current;
     if (!sess) return console.error("Session not ready");
 
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const audioCtx = new AudioContext({ sampleRate: 16000 });
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        channelCount: 1,
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
+    });
+    const audioCtx = new AudioContext({ sampleRate: 16000, latencyHint: "interactive" });
     await audioCtx.audioWorklet.addModule("/voice-processor.js");
 
     const source = audioCtx.createMediaStreamSource(stream);
     const worklet = new AudioWorkletNode(audioCtx, "voice-processor");
-    source.connect(worklet).connect(audioCtx.destination);
+    // Avoid routing mic to destination to prevent echo; send only to worklet
+    source.connect(worklet);
 
     isStreaming.current = true;
     worklet.port.onmessage = (e) => {
@@ -157,6 +179,37 @@ Email: ${session.user.email}
       // Normalize to 0-1 range and smooth
       const normalizedLevel = Math.max(0, Math.min(1, (db + 90) / 90));
       setAudioLevel(normalizedLevel);
+
+      // Simple barge-in: if user speaks above threshold, stop current TTS playback immediately
+      const startThreshold = 0.2;
+      const stopThreshold = 0.05;
+      const stopDelayMs = 200;
+      if (normalizedLevel > startThreshold) {
+        userSpeakingRef.current = true;
+        // Stop any ongoing playback
+        if (typeof currentSource !== "undefined" && currentSource) {
+          try {
+            currentSource.onended = null;
+            currentSource.stop();
+          } catch {}
+        }
+        audioChunks = [];
+        isPlaying = false;
+        if (typeof currentAudioContext !== "undefined" && currentAudioContext) {
+          try {
+            currentAudioContext.close();
+          } catch {}
+          currentAudioContext = null;
+        }
+      } else if (normalizedLevel < stopThreshold && userSpeakingRef.current) {
+        // Debounce end-of-speech
+        if (speechSilenceTimeoutRef.current) {
+          clearTimeout(speechSilenceTimeoutRef.current);
+        }
+        speechSilenceTimeoutRef.current = setTimeout(() => {
+          userSpeakingRef.current = false;
+        }, stopDelayMs);
+      }
 
       const pcm16 = floatTo16BitPCM(floatSamples);
       const b64 = arrayBufferToBase64(pcm16.buffer);
@@ -219,7 +272,7 @@ Email: ${session.user.email}
   let audioChunks = [];
   let isPlaying = false;
   let lastChunkTime = 0;
-  const CHUNK_TIMEOUT = 100; // ms to wait before playing buffered chunks
+  const CHUNK_TIMEOUT = 40; // ms to wait before playing buffered chunks (reduced for lower latency)
 
   // WAV header helper function
   function makeWavHeader(dataLength, sampleRate, numChannels, bitsPerSample) {
@@ -272,7 +325,7 @@ Email: ${session.user.email}
         if (p.inlineData?.data) {
           try {
             console.log("Audio MIME type:", p.inlineData.mimeType);
-            await bufferAndPlayAudio(p.inlineData.data);
+            schedulePlaybackChunk(p.inlineData.data);
           } catch (err) {
             console.error("Failed to handle audio:", err);
           }
@@ -306,104 +359,44 @@ Email: ${session.user.email}
     }
   };
 
-  const bufferAndPlayAudio = async (b64Data) => {
-    const now = Date.now();
+  // Streamed playback scheduler per Gemini Live API best practice
+  const schedulePlaybackChunk = (b64Data) => {
+    const PLAYBACK_SR = 24000;
+    if (!playbackAudioCtxRef.current) {
+      playbackAudioCtxRef.current = new AudioContext({ latencyHint: "interactive" });
+      playbackCursorRef.current = playbackAudioCtxRef.current.currentTime + 0.04;
+    }
+    const ctx = playbackAudioCtxRef.current;
+    const now = ctx.currentTime;
+    if (playbackCursorRef.current == null || playbackCursorRef.current < now + 0.02) {
+      playbackCursorRef.current = now + 0.04;
+    }
 
-    // Convert incoming chunk to samples
+    // Convert base64 PCM16 to Float32
     const bin = base64ToArrayBuffer(b64Data);
-    const samples = new Int16Array(bin);
-
-    // Add to chunks buffer
-    audioChunks.push(samples);
-    lastChunkTime = now;
-
-    // If we're not already playing, schedule playback
-    if (!isPlaying) {
-      setTimeout(async () => {
-        // Only play if we haven't received new chunks recently
-        if (
-          Date.now() - lastChunkTime >= CHUNK_TIMEOUT &&
-          audioChunks.length > 0
-        ) {
-          isPlaying = true;
-          try {
-            await playBufferedAudio();
-          } finally {
-            isPlaying = false;
-          }
-        }
-      }, CHUNK_TIMEOUT);
-    }
-  };
-
-  const playBufferedAudio = async () => {
-    if (audioChunks.length === 0) return;
-
-    // Clean up any existing playback
-    if (currentAudioContext) {
-      currentSource?.stop();
-      await currentAudioContext.close();
-      currentAudioContext = null;
-      currentSource = null;
+    const int16 = new Int16Array(bin);
+    const float32 = new Float32Array(int16.length);
+    for (let i = 0; i < int16.length; i++) {
+      float32[i] = int16[i] / 0x8000;
     }
 
+    const buffer = ctx.createBuffer(1, float32.length, PLAYBACK_SR);
+    buffer.getChannelData(0).set(float32);
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    src.connect(ctx.destination);
+    src.onended = () => {
+      activePlaybackSourcesRef.current.delete(src);
+    };
+    activePlaybackSourcesRef.current.add(src);
     try {
-      // Calculate total length and combine chunks
-      const totalLength = audioChunks.reduce(
-        (sum, chunk) => sum + chunk.length,
-        0
-      );
-      const combinedSamples = new Int16Array(totalLength);
-      let offset = 0;
-      for (const chunk of audioChunks) {
-        combinedSamples.set(chunk, offset);
-        offset += chunk.length;
-      }
-
-      // Convert to WAV format
-      const wavHeader = makeWavHeader(combinedSamples.byteLength, 24000, 1, 16);
-      const wavBuffer = new Uint8Array(
-        wavHeader.byteLength + combinedSamples.byteLength
-      );
-      wavBuffer.set(new Uint8Array(wavHeader), 0);
-      wavBuffer.set(
-        new Uint8Array(combinedSamples.buffer),
-        wavHeader.byteLength
-      );
-
-      // Create audio context and decode WAV data
-      currentAudioContext = new AudioContext();
-      const audioBuffer = await currentAudioContext.decodeAudioData(
-        wavBuffer.buffer
-      );
-
-      // Play the audio
-      currentSource = currentAudioContext.createBufferSource();
-      currentSource.buffer = audioBuffer;
-      currentSource.connect(currentAudioContext.destination);
-
-      // Clear the chunks buffer
-      audioChunks = [];
-
-      return new Promise((resolve, reject) => {
-        currentSource.onended = async () => {
-          try {
-            await currentAudioContext.close();
-            currentAudioContext = null;
-            currentSource = null;
-            resolve();
-          } catch (err) {
-            reject(err);
-          }
-        };
-
-        currentSource.start();
-      });
-    } catch (err) {
-      console.error("Playback error:", err);
-      // Clear buffers on error
-      audioChunks = [];
-      throw err;
+      src.start(playbackCursorRef.current);
+      playbackCursorRef.current += buffer.duration;
+    } catch (e) {
+      try {
+        src.start();
+        playbackCursorRef.current = ctx.currentTime + buffer.duration;
+      } catch {}
     }
   };
 
@@ -423,6 +416,18 @@ Email: ${session.user.email}
       audioCtxRef.current.close();
       audioCtxRef.current = null;
     }
+    // Stop and close playback context and any active scheduled sources
+    try {
+      activePlaybackSourcesRef.current.forEach((src) => {
+        try { src.onended = null; src.stop(); } catch {}
+      });
+      activePlaybackSourcesRef.current.clear();
+      if (playbackAudioCtxRef.current) {
+        playbackAudioCtxRef.current.close();
+      }
+    } catch {}
+    playbackAudioCtxRef.current = null;
+    playbackCursorRef.current = null;
   };
 
   // Add handleClose function
@@ -443,41 +448,85 @@ Email: ${session.user.email}
     onClose();
   };
 
+  const connectionBadge = useMemo(() => {
+    if (recording) return { text: "Listening", color: "bg-blue-600" };
+    if (connected) return { text: "Connected", color: "bg-blue-600" };
+    return { text: "Connecting…", color: "bg-slate-400" };
+  }, [connected, recording]);
+
   return (
-    <div className="flex flex-col justify-center relative items-center h-[100vh] w-[100vw]">
-      <div className="absolute top-1/2 transform -translate-y-1/2">
-        <WaveformAnimation
-          connected={connected}
-          recording={recording}
-          audioLevel={audioLevel}
-          size={120}
-        />
+    <div className="relative min-h-[100dvh] w-screen overflow-hidden bg-gray-50 dark:bg-[#181818]">
+      {/* Top bar (chat-like) */}
+      <div className="sticky top-0 z-20 flex items-center justify-between p-4 border-b border-gray-200 dark:border-[#3B3B3B] bg-white/95 dark:bg-[#181818]/95 backdrop-blur-sm">
+        <div className="flex items-center gap-3">
+          <div className={`h-2.5 w-2.5 rounded-full ${connectionBadge.color}`} />
+          <span className="text-sm text-slate-700 dark:text-slate-300">{connectionBadge.text}</span>
+        </div>
+        <button
+          onClick={handleClose}
+          className="group relative inline-flex items-center gap-2 rounded-full border border-gray-200 dark:border-[#3B3B3B] bg-white dark:bg-[#1f1f1f] px-4 py-2 text-sm text-slate-700 dark:text-slate-200 transition hover:bg-gray-100 dark:hover:bg-[#3B3B3B]"
+        >
+          <span>Close</span>
+          <Image src="/icons/close_icon.png" alt="close" width={16} height={16} className="opacity-80 group-hover:opacity-100 dark:invert" />
+        </button>
       </div>
 
-      <div className="flex justify-center w-[100vw] h-fit py-[10px] absolute bottom-[20px] left-0 right-0">
-      <button
-        onClick={recording ? stopVoice : startVoice}
-        disabled={!connected}
-      >
-        {recording ? "🛑 Stop" : "🎙️ Talk"}
-      </button>
-      {!connected && (
-        <p style={{ color: "gray", marginTop: 8 }}>Connecting to Gemini…</p>
-      )}
+      {/* Center visualizer */}
+      <div className="absolute inset-0 grid place-items-center">
+        <div className="relative">
+          <WaveformAnimation
+            connected={connected}
+            recording={recording}
+            audioLevel={audioLevel}
+            size={420}
+          />
 
-        {/* Voice Chat Button */}
-        <motion.button
-          className="relative group absolute justify-start item-start cursor-pointer"
-          onClick={handleClose}
-        >
-          <div className="flex h-[64px] w-[64px] border border-[#CCD6DD] p-[15px] rounded-full bg-[#E1E8ED] justify-center">
-            <img
-              src="/icons/cancel_icon.png"
-              alt="cancel icon"
-              className="object-fit p-[6px]"
-            />
+          {/* Microphone CTA */}
+          <div className="absolute inset-0 grid place-items-center">
+            <motion.button
+              onClick={recording ? stopVoice : startVoice}
+              disabled={!connected && !recording}
+              className="group relative inline-flex items-center justify-center rounded-full border border-gray-200 dark:border-[#3B3B3B] bg-white dark:bg-[#1f1f1f] p-4 transition disabled:opacity-60 hover:bg-gray-100 dark:hover:bg-[#3B3B3B]"
+              whileTap={{ scale: 0.96 }}
+              whileHover={{ scale: connected ? 1.03 : 1 }}
+            >
+              <div
+                className={`relative flex h-16 w-16 items-center justify-center rounded-full ${
+                  recording ? "bg-blue-600/90" : connected ? "bg-blue-600/90" : "bg-slate-600/80"
+                } shadow-xl shadow-black/20`}
+              >
+                <motion.div
+                  className="absolute inset-0 rounded-full"
+                  animate={{
+                    boxShadow: recording
+                      ? [
+                          "0 0 0 0 rgba(37,99,235,0.30)",
+                          "0 0 0 10px rgba(37,99,235,0)",
+                        ]
+                      : connected
+                      ? [
+                          "0 0 0 0 rgba(37,99,235,0.30)",
+                          "0 0 0 10px rgba(37,99,235,0)",
+                        ]
+                      : "0 0 0 0 rgba(148,163,184,0)",
+                  }}
+                  transition={{ duration: 1.4, repeat: Infinity }}
+                />
+              </div>
+            </motion.button>
           </div>
-        </motion.button>
+        </div>
+      </div>
+
+      {/* Bottom help text */}
+      <div className="absolute inset-x-0 bottom-0 z-10 flex items-center justify-center px-6 pb-8">
+        <div className="rounded-full border border-gray-200 dark:border-[#3B3B3B] bg-white dark:bg-[#1f1f1f] px-4 py-2 text-xs text-slate-600 dark:text-slate-300">
+          {recording
+            ? "Speaking… we’ll auto-detect when you stop"
+            : connected
+            ? "Tap the mic to talk — we’ll listen and respond in real-time"
+            : "Connecting to live assistant…"}
+        </div>
       </div>
     </div>
   );

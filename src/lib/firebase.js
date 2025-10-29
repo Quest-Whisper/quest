@@ -15,35 +15,15 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const storage = getStorage(app);
 
-export async function uploadToFirebase(file, userId) {
+export async function uploadToFirebase(file, customPath) {
   try {
-    // Create a unique file name
-    const timestamp = Date.now();
-    const fileName = `${userId}/attachments/${timestamp}_${file.name}`;
-    
-    // Create a reference to the file location
-    const storageRef = ref(storage, fileName);
-    
-    // Upload the file
+    const storageRef = ref(storage, customPath);
     const snapshot = await uploadBytes(storageRef, file);
-    
-    // Get the download URL
     const downloadURL = await getDownloadURL(snapshot.ref);
-    
-    return {
-      success: true,
-      url: downloadURL,
-      fileName: fileName,
-      type: file.type,
-      size: file.size,
-      displayName: file.name
-    };
+    return { success: true, url: downloadURL, path: customPath };
   } catch (error) {
     console.error('Error uploading file:', error);
-    return {
-      success: false,
-      error: error.message
-    };
+    return { success: false, error: error.message };
   }
 }
 
@@ -103,11 +83,9 @@ export function validateFileType(file) {
     'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
     
     // Documents (uploaded to Gemini File API)
+    // Per Google guidance, restrict to PDF and plain text for document understanding
     'application/pdf',
-    'text/plain', 'text/csv', 'text/markdown',
-    'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'text/plain',
     
     // Audio files (uploaded to Gemini File API)
     'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/aac', 'audio/ogg', 'audio/flac',

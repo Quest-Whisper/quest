@@ -45,7 +45,7 @@ export default function GeneratedImage({
                 message.attachments?.[0]?.prompt ||
                 "Generated image"
               }
-              className="rounded-xl h-full w-full object-contain cursor-pointer bg-slate-300 dark:bg-slate-600"
+              className="rounded-xl h-full w-full object-contain cursor-pointer bg-slate-200 dark:bg-[#3B3B3B]"
               onError={(e) => {
                 console.error("Image load error:", e);
                 // If the permanent URL fails, fallback to the temporary URL

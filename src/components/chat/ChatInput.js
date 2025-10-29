@@ -402,6 +402,7 @@ export default function ChatInput({ onSend, isLoading, onVoiceMode }) {
                   </div>
                 )}
               </motion.button>
+              {/* Hint: Only PDF, TXT, images, audio, and video supported */}
               
               {/* Voice Chat Button */}
               <motion.button 
@@ -567,7 +568,7 @@ export default function ChatInput({ onSend, isLoading, onVoiceMode }) {
         ref={fileInputRef}
         type="file"
         multiple
-        accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.md,audio/*,video/*"
+        accept="image/*,.pdf,.txt,audio/*,video/*"
         onChange={handleFileChange}
         className="hidden"
       />

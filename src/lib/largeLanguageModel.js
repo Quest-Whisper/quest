@@ -1343,6 +1343,43 @@ function extractAssistantText(llmResponse) {
   }
 }
 
+// Model-based assessment to determine if the answer announces intent or needs continuation
+function extractJsonObject(text) {
+  if (!text) return null;
+  // Try to extract the first JSON object
+  const match = text.match(/\{[\s\S]*\}/);
+  return match ? match[0] : null;
+}
+
+async function assessAnswerQuality(userMessageContent, assistantAnswer) {
+  try {
+    const prompt = `You will receive a user's request and an assistant's drafted answer. Determine if the answer is merely announcing intent to perform an action (e.g., \"I will now summarize\", \"Let me check\") or otherwise not providing the final actionable result. If so, needsContinuation should be true.
+
+Return strict JSON with the following fields only:
+{"needsContinuation": boolean, "cleanedAnswer": string}
+
+Rules:
+- cleanedAnswer must remove any announcement/placeholder prefaces and include only substantive content present in the drafted answer. If no substantive content is present, cleanedAnswer should be an empty string.
+
+User request:\n${userMessageContent}\n\nAssistant drafted answer:\n${assistantAnswer}`;
+
+    const resp = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+    });
+    const raw = resp?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    const jsonStr = extractJsonObject(raw) || raw;
+    const parsed = JSON.parse(jsonStr);
+    return {
+      needsContinuation: !!parsed.needsContinuation,
+      cleanedAnswer:
+        typeof parsed.cleanedAnswer === "string" ? parsed.cleanedAnswer : "",
+    };
+  } catch (e) {
+    return { needsContinuation: false, cleanedAnswer: assistantAnswer || "" };
+  }
+}
+
 function extractThoughtsAndFunctionCall(response) {
   let textBlock = null;
 
@@ -1404,33 +1441,46 @@ async function sendWithRetry(
       // Add files if present (images inline, others by URI)
       if (userFiles && Array.isArray(userFiles)) {
         for (const file of userFiles) {
-          if (file && file.uri) {
-            try {
-              if (file.type === "image") {
-                // Fetch the image from Firebase Storage and convert to base64
-                const response = await fetch(file.uri);
-                const arrayBuffer = await response.arrayBuffer();
-                const base64Data = Buffer.from(arrayBuffer).toString("base64");
+          try {
+            // Unified attachment shape support
+            // Expected current shape from ChatInput: { url, type (MIME), size, category, displayName, geminiFile? }
+            //  - Images: inlineData (base64 of file.url)
+            //  - Non-images: fileData using geminiFile.uri
 
-                parts.push({
-                  inlineData: {
-                    mimeType: file.mimeType,
-                    data: base64Data,
-                  },
-                });
-              } else if (file.type === "gemini") {
-                // Use Gemini File API URI directly
-                parts.push({
-                  fileData: {
-                    mimeType: file.mimeType,
-                    fileUri: file.uri,
-                  },
-                });
-              }
-            } catch (error) {
-              console.error("Error processing file in sendWithRetry:", error);
-              // Continue without this file if processing fails
+            const isImage = file?.category === "image" || file?.type?.startsWith?.("image/");
+            const hasGeminiUri = !!(file?.geminiFile?.uri);
+            const firebaseUrl = file?.url; // Download URL from Firebase
+            const mimeType = file?.type || file?.mimeType || (isImage ? "image/*" : undefined);
+
+            if (isImage && firebaseUrl) {
+              // Fetch image bytes and embed inline
+              const response = await fetch(firebaseUrl);
+              const arrayBuffer = await response.arrayBuffer();
+              const base64Data = Buffer.from(arrayBuffer).toString("base64");
+
+              parts.push({
+                inlineData: {
+                  mimeType: mimeType,
+                  data: base64Data,
+                },
+              });
+            } else if (hasGeminiUri) {
+              // Use Gemini File API URI for docs, sheets, slides, pdf, audio, video
+              parts.push({
+                fileData: {
+                  mimeType: mimeType,
+                  fileUri: file.geminiFile.uri,
+                },
+              });
+            } else if (firebaseUrl) {
+              // Fallback: if for some reason gemini upload failed, at least provide the URL contextually
+              parts.push({
+                text: `Attachment available: ${file.displayName || "file"} (${mimeType || "unknown"}) -> ${firebaseUrl}`,
+              });
             }
+          } catch (error) {
+            console.error("Error processing file in sendWithRetry:", error);
+            // Continue without this file if processing fails
           }
         }
       }
@@ -1596,8 +1646,28 @@ async function handleUserQuery(chat, userMessageContent, userFiles = null) {
     }
   }
 
+  // Ask the model to self-assess whether continuation is required
+  const assessment = await assessAnswerQuality(userMessageContent, finalAnswer);
+  if (assessment.needsContinuation) {
+    try {
+      const continuation = await chat.sendMessage({
+        message:
+          "Do not announce intent. Immediately perform the requested task and return the final result now. Use tools silently if needed. Reply only with the final result.",
+      });
+      const continuedAnswer = extractAssistantText(continuation);
+      const cleaned = (await assessAnswerQuality(
+        userMessageContent,
+        continuedAnswer
+      )).cleanedAnswer;
+      if (cleaned) return cleaned;
+    } catch (e) {
+      // Fall through to cleaned original
+    }
+    if (assessment.cleanedAnswer) return assessment.cleanedAnswer;
+  }
+
   return (
-    finalAnswer ||
+    assessment.cleanedAnswer ||
     "I apologize, but I couldn't process your request. Please try again."
   );
 }
@@ -1842,36 +1912,40 @@ When using generateImageWithReference, use the URL and type from the attachments
       // Add files if present
       if (msg.attachments && Array.isArray(msg.attachments)) {
         for (const file of msg.attachments) {
-          if (file && file.url) {
-            try {
-              if (file.category === "image") {
-                // Fetch the image from Firebase Storage and convert to base64
-                const response = await fetch(file.url);
-                const arrayBuffer = await response.arrayBuffer();
-                const base64Data = Buffer.from(arrayBuffer).toString("base64");
+          try {
+            const isImage = file?.category === "image" || file?.type?.startsWith?.("image/");
+            const hasGeminiUri = !!(file?.geminiFile?.uri);
+            const firebaseUrl = file?.url;
+            const mimeType = file?.type || file?.mimeType || (isImage ? "image/*" : undefined);
 
-                parts.push({
-                  inlineData: {
-                    mimeType: file.type,
-                    data: base64Data,
-                  },
-                });
-              } else if (file.geminiFile) {
-                // Use Gemini File API URI directly
-                parts.push({
-                  fileData: {
-                    mimeType: file.type,
-                    fileUri: file.geminiFile.uri,
-                  },
-                });
-              }
-            } catch (error) {
-              console.error(
-                "Error processing file in generateChatCompletion:",
-                error
-              );
-              // Continue without this file if processing fails
+            if (isImage && firebaseUrl) {
+              const response = await fetch(firebaseUrl);
+              const arrayBuffer = await response.arrayBuffer();
+              const base64Data = Buffer.from(arrayBuffer).toString("base64");
+
+              parts.push({
+                inlineData: {
+                  mimeType: mimeType,
+                  data: base64Data,
+                },
+              });
+            } else if (hasGeminiUri) {
+              parts.push({
+                fileData: {
+                  mimeType: mimeType,
+                  fileUri: file.geminiFile.uri,
+                },
+              });
+            } else if (firebaseUrl) {
+              parts.push({
+                text: `Attachment available: ${file.displayName || "file"} (${mimeType || "unknown"}) -> ${firebaseUrl}`,
+              });
             }
+          } catch (error) {
+            console.error(
+              "Error processing file in generateChatCompletion:",
+              error
+            );
           }
         }
       }
@@ -1962,36 +2036,40 @@ When using generateImageWithReference, use the URL and type from the attachments
       // Add files if present
       if (msg.attachments && Array.isArray(msg.attachments)) {
         for (const file of msg.attachments) {
-          if (file && file.url) {
-            try {
-              if (file.category === "image") {
-                // Fetch the image from Firebase Storage and convert to base64
-                const response = await fetch(file.url);
-                const arrayBuffer = await response.arrayBuffer();
-                const base64Data = Buffer.from(arrayBuffer).toString("base64");
+          try {
+            const isImage = file?.category === "image" || file?.type?.startsWith?.("image/");
+            const hasGeminiUri = !!(file?.geminiFile?.uri);
+            const firebaseUrl = file?.url;
+            const mimeType = file?.type || file?.mimeType || (isImage ? "image/*" : undefined);
 
-                parts.push({
-                  inlineData: {
-                    mimeType: file.type,
-                    data: base64Data,
-                  },
-                });
-              } else if (file.geminiFile) {
-                // Use Gemini File API URI directly
-                parts.push({
-                  fileData: {
-                    mimeType: file.type,
-                    fileUri: file.geminiFile.uri,
-                  },
-                });
-              }
-            } catch (error) {
-              console.error(
-                "Error processing file in generateChatCompletionStreaming:",
-                error
-              );
-              // Continue without this file if processing fails
+            if (isImage && firebaseUrl) {
+              const response = await fetch(firebaseUrl);
+              const arrayBuffer = await response.arrayBuffer();
+              const base64Data = Buffer.from(arrayBuffer).toString("base64");
+
+              parts.push({
+                inlineData: {
+                  mimeType: mimeType,
+                  data: base64Data,
+                },
+              });
+            } else if (hasGeminiUri) {
+              parts.push({
+                fileData: {
+                  mimeType: mimeType,
+                  fileUri: file.geminiFile.uri,
+                },
+              });
+            } else if (firebaseUrl) {
+              parts.push({
+                text: `Attachment available: ${file.displayName || "file"} (${mimeType || "unknown"}) -> ${firebaseUrl}`,
+              });
             }
+          } catch (error) {
+            console.error(
+              "Error processing file in generateChatCompletionStreaming:",
+              error
+            );
           }
         }
       }
@@ -2102,6 +2180,10 @@ async function* handleUserQueryStreaming(
     let initialResponse = null;
     let streamingChunks = [];
 
+    // Streaming placeholder filtering buffers
+    let bufferedText = "";
+    let yieldedLength = 0;
+
     for await (const chunk of streamingResponse) {
       if (!initialResponse) {
         initialResponse = chunk;
@@ -2117,14 +2199,19 @@ async function* handleUserQueryStreaming(
         }
       }
 
-      // If no function calls, start streaming the text response
+      // If no function calls, start streaming the text response with model-assessed cleaning of any leading boilerplate
       const textContent = extractAssistantText(chunk);
       if (textContent) {
-        streamingChunks.push(textContent);
-        yield {
-          type: "content",
-          content: textContent,
-        };
+        bufferedText += textContent;
+        const delta = bufferedText.slice(yieldedLength);
+        if (delta.length > 0) {
+          yieldedLength += delta.length;
+          streamingChunks.push(delta);
+          yield {
+            type: "content",
+            content: delta,
+          };
+        }
       }
     }
 
@@ -2264,7 +2351,52 @@ async function* handleUserQueryStreaming(
     // Handle final response if no streaming occurred yet
     const finalAnswer = extractAssistantText(response || initialResponse);
     if (finalAnswer) {
-      yield* streamTextResponse(finalAnswer);
+      const assessment = await assessAnswerQuality(
+        userMessageContent,
+        finalAnswer
+      );
+      if (assessment.needsContinuation || assessment.cleanedAnswer.length === 0) {
+        // Force continuation: request the model to complete the action and return results
+        const continuationHistory = [
+          ...conversationHistory,
+          { role: "model", parts: [{ text: finalAnswer }] },
+          {
+            role: "user",
+            parts: [
+              {
+                text:
+                  "Do not announce intent. Immediately perform the requested task and return the final result now. Use tools silently if needed. Reply only with the final result.",
+              },
+            ],
+          },
+        ];
+
+        const continued = await ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: continuationHistory,
+          config: {
+            systemInstruction: chat.config?.systemInstruction,
+            tools: chat.config?.tools,
+            toolConfig: chat.config?.toolConfig,
+          },
+        });
+        const continuedRaw = extractAssistantText(continued);
+        const continuedAssessed = await assessAnswerQuality(
+          userMessageContent,
+          continuedRaw
+        );
+        if (continuedAssessed.cleanedAnswer) {
+          yield* streamTextResponse(continuedAssessed.cleanedAnswer);
+        } else if (assessment.cleanedAnswer) {
+          yield* streamTextResponse(assessment.cleanedAnswer);
+        } else {
+          yield* streamTextResponse(
+            "I apologize, but I couldn't process your request. Please try again."
+          );
+        }
+      } else {
+        yield* streamTextResponse(assessment.cleanedAnswer || finalAnswer);
+      }
     } else if (lastFunctionResult) {
       const formattedResult = formatFunctionResultsDirectly(
         lastFunctionName,

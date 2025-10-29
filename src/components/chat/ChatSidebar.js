@@ -8,7 +8,7 @@ import {
   ArrowRightOnRectangleIcon,
 } from "@heroicons/react/24/outline";
 import Image from "next/image";
-import { useEffect } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { signOut, useSession } from "next-auth/react";
 
 export default function ChatSidebar({
@@ -19,6 +19,9 @@ export default function ChatSidebar({
   onNewChat,
   onLoadChat,
   onDeleteChat,
+  pagination,
+  isLoadingMore,
+  onLoadMore,
 }) {
   const { data: session } = useSession();
 
@@ -69,6 +72,37 @@ export default function ChatSidebar({
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  // Infinite scrolling for chat history
+  const chatHistoryRef = useRef(null);
+  
+  const handleScroll = useCallback(() => {
+    if (!chatHistoryRef.current || !pagination?.hasMore || isLoadingMore) return;
+    
+    const { scrollTop, scrollHeight, clientHeight } = chatHistoryRef.current;
+    const isNearBottom = scrollTop + clientHeight >= scrollHeight - 100; // Load when 100px from bottom
+    
+    if (isNearBottom) {
+      onLoadMore();
+    }
+  }, [pagination?.hasMore, isLoadingMore, onLoadMore]);
+
+  useEffect(() => {
+    const chatHistoryElement = chatHistoryRef.current;
+    if (chatHistoryElement) {
+      let timeoutId;
+      const debouncedScroll = () => {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(handleScroll, 100);
+      };
+      
+      chatHistoryElement.addEventListener('scroll', debouncedScroll);
+      return () => {
+        chatHistoryElement.removeEventListener('scroll', debouncedScroll);
+        clearTimeout(timeoutId);
+      };
+    }
+  }, [handleScroll]);
+
   const isMinimized = showSidebar === "minimized";
   const isFullyOpen = showSidebar === true;
   const isHidden = showSidebar === false;
@@ -96,7 +130,7 @@ export default function ChatSidebar({
           isMobile && isFullyOpen ? "fixed left-0 top-0 h-full z-50" : ""
         } bg-white dark:bg-[#181818] border-r border-gray-200 ${isMobile?"dark:border-0":"dark:border-[#3B3B3B]"} flex flex-col overflow-hidden shadow-lg transition-all duration-300 ease-out`}
         animate={{
-          width: isHidden ? 0 : isMinimized ? 72 : 290,
+          width: isHidden ? 0 : isMinimized ? 72 : 270,
           opacity: isHidden ? 0 : 1,
         }}
         transition={{ duration: 0.3, ease: [0.4, 0.0, 0.2, 1] }}
@@ -131,7 +165,7 @@ export default function ChatSidebar({
 
                 <motion.button
                   onClick={onNewChat}
-                  className="p-2.5 bg-[#212124] dark:bg-[#212124] dark:hover:bg-[#3B3B3B] hover:bg-black text-white rounded-xl transition-all duration-200 hover:shadow-md"
+                  className="cursor-pointer p-2.5 bg-[#212124] dark:bg-[#212124] dark:hover:bg-[#3B3B3B] hover:bg-black text-white rounded-xl transition-all duration-200 hover:shadow-md"
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   title="New conversation"
@@ -145,7 +179,7 @@ export default function ChatSidebar({
             <div className="flex flex-col p-3 items-center gap-3">
               <motion.button
                 onClick={() => setShowSidebar(true)}
-                className="w-fit p-2.5 rounded-xl hover:bg-white/60 transition-colors text-gray-600 hover:text-gray-800"
+                className="w-fit p-2.5 rounded-xl dark:hover:bg-[#3B3B3B] cursor-pointer transition-colors text-gray-600 hover:text-gray-800"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 title="Expand sidebar"
@@ -161,7 +195,7 @@ export default function ChatSidebar({
 
               <motion.button
                 onClick={handleLogout}
-                className="p-2 rounded-lg hover:bg-red-50 dark:hover:bg-[#3B3B3B] transition-colors text-gray-600 hover:text-red-600 flex-shrink-0"
+                className="cursor-pointer p-2 rounded-lg hover:bg-red-50 dark:hover:bg-[#3B3B3B] transition-colors text-gray-600 hover:text-red-600 flex-shrink-0"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 title="Logout"
@@ -202,7 +236,7 @@ export default function ChatSidebar({
                 <div className="flex items-center gap-1">
                   <motion.button
                     onClick={() => setShowSidebar("minimized")}
-                    className="p-2 rounded-lg hover:bg-white/60 transition-colors text-gray-600 hover:text-gray-800"
+                    className="cursor-pointer p-2 rounded-lg dark:hover:bg-[#3B3B3B] transition-colors text-gray-600 hover:text-gray-800"
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     title="Minimize sidebar"
@@ -217,17 +251,23 @@ export default function ChatSidebar({
                   </motion.button>
                   <button
                     onClick={() => setShowSidebar(false)}
-                    className="p-2 rounded-lg hover:bg-white/60 transition-colors text-gray-600 hover:text-gray-800 md:hidden"
+                    className="cursor-pointer p-2 rounded-lg dark:hover:bg-[#3B3B3B] transition-colors text-gray-400 hover:text-gray-200 md:hidden"
                     title="Close sidebar"
                   >
-                    <XMarkIcon className="w-5 h-5" />
+                    <Image
+                  src="/icons/close_icon.png"
+                  alt="Close"
+                  width={18}
+                  height={18}
+                  className="w-6 h-6 object-contain dark:invert"
+                />
                   </button>
                 </div>
               </div>
 
               <motion.button
                 onClick={onNewChat}
-                className="w-full bg-[#212124] dark:bg-[#212124] dark:hover:bg-[#3B3B3B] hover:bg-black text-white rounded-full p-3 flex items-center gap-3 transition-all duration-200 hover:shadow-md"
+                className="cursor-pointer w-full bg-[#212124] dark:bg-[#212124] dark:hover:bg-[#3B3B3B] hover:bg-black text-white rounded-full p-3 flex items-center gap-3 transition-all duration-200 hover:shadow-md"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >
@@ -237,7 +277,7 @@ export default function ChatSidebar({
             </div>
 
             {/* Chat history */}
-            <div className="flex-1 overflow-y-auto p-4">
+            <div ref={chatHistoryRef} className="flex-1 overflow-y-auto p-4">
               {chatHistory.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
                   <motion.div
@@ -267,9 +307,16 @@ export default function ChatSidebar({
                 </div>
               ) : (
                 <div className="space-y-[1px]">
-                  <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4 px-2">
-                    Recent Conversations
-                  </h2>
+                  <div className="flex items-center justify-between mb-4 px-2">
+                    <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      Recent Conversations
+                    </h2>
+                    {pagination?.total > 0 && (
+                      <span className="text-xs text-gray-400 dark:text-gray-500">
+                        {chatHistory.length} of {pagination.total}
+                      </span>
+                    )}
+                  </div>
 
                   {chatHistory.map((chat, index) => (
                     <motion.div
@@ -312,6 +359,41 @@ export default function ChatSidebar({
                       </div>
                     </motion.div>
                   ))}
+                  
+                  {/* Loading indicator for infinite scroll */}
+                  {isLoadingMore && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="flex justify-center py-4"
+                    >
+                      <div className="flex items-center space-x-2 text-gray-500 dark:text-gray-400">
+                        <div className="flex space-x-1">
+                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                          <div
+                            className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                            style={{ animationDelay: "0.1s" }}
+                          ></div>
+                          <div
+                            className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                            style={{ animationDelay: "0.2s" }}
+                          ></div>
+                        </div>
+                        <span className="text-xs">Loading more...</span>
+                      </div>
+                    </motion.div>
+                  )}
+                  
+                  {/* End of chat history indicator */}
+                  {!pagination?.hasMore && chatHistory.length > 0 && pagination?.total > 25 && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="text-center py-4 text-xs text-gray-500 dark:text-gray-400"
+                    >
+                      You've reached the end of your conversations
+                    </motion.div>
+                  )}
                 </div>
               )}
             </div>
@@ -342,7 +424,7 @@ export default function ChatSidebar({
                   </div>
                   <motion.button
                     onClick={handleLogout}
-                    className="p-2 rounded-lg hover:bg-red-50 dark:hover:bg-[#3B3B3B] transition-colors text-gray-600 hover:text-red-600 flex-shrink-0"
+                    className="cursor-pointer p-2 rounded-lg hover:bg-red-50 dark:hover:bg-[#3B3B3B] transition-colors text-gray-600 hover:text-red-600 flex-shrink-0"
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     title="Logout"

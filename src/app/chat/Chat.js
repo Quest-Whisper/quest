@@ -10,6 +10,15 @@ import { Bars3Icon } from "@heroicons/react/24/outline";
 import Image from "next/image";
 import LiveVoiceChat from "@/components/chat/LiveChat";
 
+const mostUsedPrompts = [
+  {
+    title: "Help me send an email",
+  },
+  {
+    title: "Generate me an image of an African family in Ghibli style",
+  },
+];
+
 function Chat() {
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -17,6 +26,14 @@ function Chat() {
   const [isVoiceMode, setIsVoiceMode] = useState(false);
   const [currentChatId, setCurrentChatId] = useState(null);
   const [chatHistory, setChatHistory] = useState([]);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 25,
+    total: 0,
+    hasMore: true,
+    totalPages: 0
+  });
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   // Initialize sidebar state based on screen size
   const [showSidebar, setShowSidebar] = useState(null); // null means not initialized
   const [isMobile, setIsMobile] = useState(false);
@@ -52,7 +69,10 @@ function Chat() {
   // Initial scroll when messages are loaded
   useEffect(() => {
     // Only scroll on initial load, not when streaming completes
-    const isInitialLoad = messages.length > 0 && !messages.some(msg => msg.isStreaming) && !hasInitialScroll;
+    const isInitialLoad =
+      messages.length > 0 &&
+      !messages.some((msg) => msg.isStreaming) &&
+      !hasInitialScroll;
     if (isInitialLoad && messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView();
       setHasInitialScroll(true);
@@ -74,15 +94,31 @@ function Chat() {
     }
   }, [searchParams, chatHistory]);
 
-  const loadChatHistory = async () => {
+  const loadChatHistory = async (page = 1, append = false) => {
     try {
-      const response = await fetch("/api/chat");
+      const response = await fetch(`/api/chat?page=${page}&limit=25`);
       if (response.ok) {
         const data = await response.json();
-        setChatHistory(data.chats || []);
+        if (append) {
+          setChatHistory(prev => [...prev, ...data.chats]);
+        } else {
+          setChatHistory(data.chats || []);
+        }
+        setPagination(data.pagination);
       }
     } catch (error) {
       console.error("Error loading chat history:", error);
+    }
+  };
+
+  const loadMoreChats = async () => {
+    if (isLoadingMore || !pagination.hasMore) return;
+    
+    setIsLoadingMore(true);
+    try {
+      await loadChatHistory(pagination.page + 1, true);
+    } finally {
+      setIsLoadingMore(false);
     }
   };
 
@@ -90,23 +126,24 @@ function Chat() {
     const chat = chatHistory.find((c) => c.id === chatId);
     if (chat) {
       // Process messages to ensure proper format for image generation messages
-      const processedMessages = chat.messages.map(msg => {
+      const processedMessages = chat.messages.map((msg) => {
         // Ensure image generation messages have the proper flag
         if (msg.isImageGeneration) {
           return {
             ...msg,
             isImageGeneration: true,
             // Ensure attachments are properly formatted
-            attachments: msg.attachments?.map(att => ({
-              ...att,
-              isGenerated: att.isGenerated || false,
-              prompt: att.prompt || msg.content
-            })) || null
+            attachments:
+              msg.attachments?.map((att) => ({
+                ...att,
+                isGenerated: att.isGenerated || false,
+                prompt: att.prompt || msg.content,
+              })) || null,
           };
         }
         return msg;
       });
-      
+
       setMessages(processedMessages);
       setCurrentChatId(chatId);
       setHasInitialScroll(false);
@@ -130,6 +167,9 @@ function Chat() {
     if (currentChatId === chatId) {
       startNewChat();
     }
+    
+    // Refresh pagination to ensure we have the right count
+    loadChatHistory(1, false);
   };
 
   const parseModelResponse = (rawContent) => {
@@ -196,7 +236,10 @@ function Chat() {
 
       try {
         // Try streaming first for retry as well
-        const success = await handleStreamingMessage(lastUserMessage.content, lastUserMessage);
+        const success = await handleStreamingMessage(
+          lastUserMessage.content,
+          lastUserMessage
+        );
         if (!success) {
           // Fallback to non-streaming for retry
           await handleNonStreamingMessageForRetry(lastUserMessage);
@@ -227,11 +270,11 @@ function Chat() {
                   "I apologize, but I couldn't process your request. Please try again."
               )
           )
-          .map(({ role, content, user, attachment }) => ({
+          .map(({ role, content, user, attachments }) => ({
             role,
             content,
             user,
-            attachment,
+            attachments,
           })),
         context: {
           userId: session?.user?.id,
@@ -282,8 +325,8 @@ function Chat() {
     if (isNewChat && chatId && !currentChatId) {
       setCurrentChatId(chatId);
       // Update the URL with the new chat ID
-      if (typeof window !== 'undefined') {
-        window.history.replaceState({}, '', `/chat?id=${chatId}`);
+      if (typeof window !== "undefined") {
+        window.history.replaceState({}, "", `/chat?id=${chatId}`);
       }
       // Reload chat history to show the new chat in the sidebar
       loadChatHistory();
@@ -292,10 +335,13 @@ function Chat() {
 
   const handleSendMessage = async (messageData) => {
     // Handle both old string format and new object format for backward compatibility
-    const content = typeof messageData === 'string' ? messageData : messageData.text;
-    const attachments = typeof messageData === 'object' ? messageData.attachments : null;
-    const isImageGeneration = typeof messageData === 'object' ? messageData.isImageGeneration : false;
-    
+    const content =
+      typeof messageData === "string" ? messageData : messageData.text;
+    const attachments =
+      typeof messageData === "object" ? messageData.attachments : null;
+    const isImageGeneration =
+      typeof messageData === "object" ? messageData.isImageGeneration : false;
+
     // Create the user message
     const userMessage = {
       role: "user",
@@ -306,7 +352,7 @@ function Chat() {
         name: session?.user?.name,
         email: session?.user?.email,
       },
-      attachments: attachments || null
+      attachments: attachments || null,
     };
 
     setMessages((prev) => [...prev, userMessage]);
@@ -328,18 +374,18 @@ function Chat() {
           },
           userId: session?.user?.id,
           // Add a placeholder for attachments that will be updated when generation is complete
-          attachments: []
+          attachments: [],
         };
-        
+
         // Try streaming first
         const success = await handleStreamingMessage(content, userMessage);
         if (!success) {
           // Fallback to non-streaming
           await handleNonStreamingMessage(content, userMessage);
         }
-        
+
         // Mark user message as sent
-        setMessages((prev) => 
+        setMessages((prev) =>
           prev.map((msg) =>
             msg === userMessage ? { ...msg, status: "sent" } : msg
           )
@@ -364,8 +410,8 @@ function Chat() {
   const handleStreamingMessage = async (content, userMessage) => {
     try {
       // Log the messages being sent to API
-      console.log('Sending messages to API:', [...messages, userMessage]);
-      console.log('Current chatId being sent:', currentChatId);
+      console.log("Sending messages to API:", [...messages, userMessage]);
+      console.log("Current chatId being sent:", currentChatId);
 
       const response = await fetch("/api/chat?stream=true", {
         method: "POST",
@@ -405,7 +451,7 @@ function Chat() {
       let imageGenerationResult = null;
 
       // Mark user message as sent
-      setMessages((prev) => 
+      setMessages((prev) =>
         prev.map((msg) =>
           msg === userMessage ? { ...msg, status: "sent" } : msg
         )
@@ -425,58 +471,101 @@ function Chat() {
 
       while (true) {
         const { done, value } = await reader.read();
-        
+
         if (done) {
           break;
         }
 
         const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n').filter(line => line.trim());
+        const lines = chunk.split("\n").filter((line) => line.trim());
 
         for (const line of lines) {
           try {
             const data = JSON.parse(line);
-            console.log('Received streaming data:', data);
-            
-            if (data.type === 'content') {
-              streamedContent += data.content;
-              
-              // Update the streaming message using the ID
-              setMessages((prev) => 
-                prev.map((msg) => 
-                  msg.id === assistantMessageId
-                    ? { ...msg, content: streamedContent }
-                    : msg
-                )
-              );
-            } else if (data.type === 'image_generation') {
+            console.log("Received streaming data:", data);
+
+            if (data.type === "content") {
+              // If this chunk is metadata (e.g., sources:[], images:[]),
+              // do not append it to the visible content. Instead, parse and store
+              // structured fields on the streaming message so UI can render them live.
+              if (data.isMetadata) {
+                setMessages((prev) =>
+                  prev.map((msg) => {
+                    if (msg.id !== assistantMessageId) return msg;
+
+                    const updated = { ...msg, isMetadata: true };
+
+                    try {
+                      // Detect and parse sources
+                      const sourcesMatch = data.content.match(/sources:\s*(\[[\s\S]*?\])/);
+                      if (sourcesMatch) {
+                        const parsedSources = JSON.parse(sourcesMatch[1]);
+                        updated.sources = Array.isArray(parsedSources)
+                          ? parsedSources
+                          : updated.sources || [];
+                      }
+                    } catch (e) {
+                      console.warn("Failed to parse streaming sources metadata:", e);
+                    }
+
+                    try {
+                      // Detect and parse images
+                      const imagesMatch = data.content.match(/images:\s*(\[[\s\S]*?\])/);
+                      if (imagesMatch) {
+                        const parsedImages = JSON.parse(imagesMatch[1]);
+                        updated.images = Array.isArray(parsedImages)
+                          ? parsedImages
+                          : updated.images || [];
+                      }
+                    } catch (e) {
+                      console.warn("Failed to parse streaming images metadata:", e);
+                    }
+
+                    return updated;
+                  })
+                );
+              } else {
+                streamedContent += data.content;
+
+                // Update the streaming message using the ID
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === assistantMessageId
+                      ? { ...msg, content: streamedContent }
+                      : msg
+                  )
+                );
+              }
+            } else if (data.type === "image_generation") {
               // Store image generation result
               imageGenerationResult = data.result;
-            } else if (data.type === 'done') {
-              console.log('Received done event:', data);
-              
+            } else if (data.type === "done") {
+              console.log("Received done event:", data);
+
               // Finalize the message
-              setMessages((prev) => 
-                prev.map((msg) => 
+              setMessages((prev) =>
+                prev.map((msg) =>
                   msg.id === assistantMessageId
-                    ? { 
-                        ...msg, 
+                    ? {
+                        ...msg,
                         content: data.fullContent || streamedContent,
                         isStreaming: false,
                         // Add image generation data if available
                         ...(imageGenerationResult && {
-                          attachments: [{
-                            url: imageGenerationResult.url,
-                            type: imageGenerationResult.type,
-                            displayName: imageGenerationResult.displayName,
-                            size: imageGenerationResult.size,
-                            category: imageGenerationResult.category,
-                            isGenerated: imageGenerationResult.isGenerated,
-                            prompt: imageGenerationResult.prompt
-                          }],
+                          attachments: [
+                            {
+                              url: imageGenerationResult.url,
+                              type: imageGenerationResult.type,
+                              displayName: imageGenerationResult.displayName,
+                              size: imageGenerationResult.size,
+                              category: imageGenerationResult.category,
+                              isGenerated: imageGenerationResult.isGenerated,
+                              prompt: imageGenerationResult.prompt,
+                            },
+                          ],
                           isImageGeneration: true,
-                          imageDescription: imageGenerationResult.description
-                        })
+                          imageDescription: imageGenerationResult.description,
+                        }),
                       }
                     : msg
                 )
@@ -484,19 +573,24 @@ function Chat() {
 
               // Update chat ID if this was a new chat
               if (data.isNewChat && data.chatId) {
-                console.log('Setting new chatId:', data.chatId);
+                console.log("Setting new chatId:", data.chatId);
                 setCurrentChatId(data.chatId);
                 window.history.replaceState({}, "", `/chat?id=${data.chatId}`);
                 loadChatHistory();
               } else {
-                console.log('Not updating chatId - isNewChat:', data.isNewChat, 'chatId:', data.chatId);
+                console.log(
+                  "Not updating chatId - isNewChat:",
+                  data.isNewChat,
+                  "chatId:",
+                  data.chatId
+                );
               }
-              
+
               setIsLoading(false);
               setIsTyping(false);
               return true; // Success
-            } else if (data.type === 'error') {
-              throw new Error(data.error || 'Streaming error');
+            } else if (data.type === "error") {
+              throw new Error(data.error || "Streaming error");
             }
           } catch (parseError) {
             console.warn("Failed to parse streaming chunk:", parseError);
@@ -518,15 +612,15 @@ function Chat() {
       headers: {
         "Content-Type": "application/json",
       },
-              body: JSON.stringify({
-          messages: [...messages, userMessage].map(
-            ({ role, content, user, attachments }) => ({
-              role,
-              content,
-              user,
-              attachments,
-            })
-          ),
+      body: JSON.stringify({
+        messages: [...messages, userMessage].map(
+          ({ role, content, user, attachments }) => ({
+            role,
+            content,
+            user,
+            attachments,
+          })
+        ),
         context: {
           userId: session?.user?.id,
           userName: session?.user?.name,
@@ -571,7 +665,7 @@ function Chat() {
 
     // Update chat ID if this was a new chat
     if (data.isNewChat && data.chatId) {
-      console.log('Setting new chatId (non-streaming):', data.chatId);
+      console.log("Setting new chatId (non-streaming):", data.chatId);
       setCurrentChatId(data.chatId);
       window.history.replaceState({}, "", `/chat?id=${data.chatId}`);
       loadChatHistory();
@@ -618,7 +712,9 @@ function Chat() {
       <div className="flex items-center justify-center h-screen bg-gray-50 dark:bg-[#181818]">
         <div className="flex flex-col items-center gap-4">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <p className="text-slate-700 dark:text-slate-200 text-sm">Loading QuestWhisper...</p>
+          <p className="text-slate-700 dark:text-slate-200 text-sm">
+            Loading QuestWhisper...
+          </p>
         </div>
       </div>
     );
@@ -644,6 +740,9 @@ function Chat() {
             onNewChat={startNewChat}
             onLoadChat={loadChat}
             onDeleteChat={handleDeleteChat}
+            pagination={pagination}
+            isLoadingMore={isLoadingMore}
+            onLoadMore={loadMoreChats}
           />
 
           {/* Main chat area */}
@@ -655,7 +754,7 @@ function Chat() {
                   (isMobile && showSidebar !== true)) && (
                   <button
                     onClick={() => setShowSidebar(true)}
-                    className="p-2 rounded-xl hover:bg-gray-100 transition-colors group"
+                    className="cursor-pointer p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-[#3B3B3B] transition-colors group"
                     title="Show sidebar"
                   >
                     <Image
@@ -663,14 +762,14 @@ function Chat() {
                       alt="Expand sidebar"
                       width={20}
                       height={20}
-                      className="w-5 h-5 object-contain"
+                      className="w-5 h-5 object-contain dark:invert"
                     />
                   </button>
                 )}
                 {showSidebar === "minimized" && !isMobile && (
                   <button
                     onClick={() => setShowSidebar(true)}
-                    className="p-2 rounded-xl hover:bg-gray-100 hover:bg-white/60 transition-colors group"
+                    className="p-2 rounded-xl cursor-pointer hover:bg-gray-100 dark:hover:bg-[#3B3B3B] transition-colors group"
                     title="Expand sidebar"
                   >
                     <Image
@@ -694,33 +793,23 @@ function Chat() {
             </div>
 
             {messages.length === 0 ? (
-              <div className="flex items-center justify-center flex-1 p-4">
+              <div className="flex items-center justify-center flex-1 p-4 px-8">
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.8, ease: "easeOut" }}
-                  className="text-center space-y-6 max-w-2xl mx-auto"
+                  className="space-y-[30px] max-w-2xl mx-auto"
                 >
-                  <motion.div
-                    className="relative"
-                    animate={{
-                      scale: [1, 1.02, 1],
-                    }}
-                    transition={{
-                      duration: 4,
-                      repeat: Infinity,
-                      ease: "easeInOut",
-                    }}
-                  >
-                    <h1 className="text-[26px] md:text-[36px] lg:text-[42px] font-bold mb-4 relative">
-                      <span
-                        className="bg-gradient-to-r from-slate-900 via-blue-500 to-slate-600 bg-clip-text text-transparent"
-                        style={{
-                          backgroundSize: "200% 100%",
-                          animation: "shimmer 3s ease-in-out infinite",
-                        }}
-                      >
-                        What's on your mind?
+                  <motion.div className="relative">
+                    <h1 className="text-[26px] md:text-[36px] lg:text-[42px] font-bold mb-1 relative flex flex-col">
+                      <span className="text-slate-600 dark:text-slate-300">
+                        Hi there,
+                      </span>
+                    </h1>
+
+                    <h1 className="text-[26px] md:text-[36px] lg:text-[42px] font-bold relative flex flex-col">
+                      <span className="text-slate-600 dark:text-slate-300">
+                        What would you like to know?
                       </span>
                     </h1>
                   </motion.div>
@@ -729,33 +818,23 @@ function Chat() {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: 0.5, duration: 0.6 }}
-                    className="text-[16px] text-slate-600 dark:text-slate-300 font-regular max-w-md mx-auto leading-relaxed"
+                    className="text-[16px] text-slate-600 dark:text-slate-300 font-regular max-w-md leading-relaxed"
                   >
-                    Ask me anything, and I'll help you explore ideas with
-                    thoughtful responses.
+                    Here are some of the most used prompts, try them.
                   </motion.p>
 
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.8, duration: 0.5 }}
-                    className="flex justify-center space-x-1"
-                  >
-                    {[...Array(3)].map((_, i) => (
-                      <motion.div
-                        key={i}
-                        className="w-2 h-2 bg-blue-400 rounded-full"
-                        animate={{
-                          opacity: [0.3, 1, 0.3],
-                          scale: [0.8, 1.2, 0.8],
-                        }}
-                        transition={{
-                          duration: 2,
-                          repeat: Infinity,
-                          delay: i * 0.3,
-                          ease: "easeInOut",
-                        }}
-                      />
+                  <motion.div className="grid grid-cols-2 gap-[10px]">
+                    {mostUsedPrompts.map((prompt, index) => (
+                      <div onClick={()=>handleSendMessage(prompt.title)} key={index} className="cursor-pointer border-[1px] border-gray-200  dark:border-[#3B3B3B] p-[20px] rounded-[20px] hover:bg-slate-100 dark:hover:bg-[#212124]">
+                        <motion.p
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ delay: 0.5, duration: 0.6 }}
+                          className="text-[16px] text-slate-600 dark:text-slate-300 font-regular max-w-md mx-auto leading-relaxed"
+                        >
+                          {prompt.title}
+                        </motion.p>
+                      </div>
                     ))}
                   </motion.div>
                 </motion.div>
@@ -767,7 +846,7 @@ function Chat() {
                     {messages.map((message, index) => {
                       const isLastMessage = index === messages.length - 1;
                       const isStreamingMessage = message.isStreaming;
-                      
+
                       return (
                         <motion.div
                           key={message.id || index}
@@ -793,7 +872,7 @@ function Chat() {
                           className="mb-8"
                         >
                           <ChatMessage
-                            message={{...message, chatId: currentChatId}}
+                            message={{ ...message, chatId: currentChatId }}
                             isUser={message.role === "user"}
                             onResendLastMessage={handleResendLastMessage}
                             onChatUpdate={handleChatUpdate}
@@ -813,7 +892,7 @@ function Chat() {
                   </AnimatePresence>
 
                   {/* Only show typing indicator if not streaming and isTyping is true */}
-                  {isTyping && !messages.some(msg => msg.isStreaming) && (
+                  {isTyping && !messages.some((msg) => msg.isStreaming) && (
                     <motion.div
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}

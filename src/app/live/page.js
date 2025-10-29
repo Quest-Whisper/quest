@@ -546,8 +546,9 @@ Email: ${session.user.email}
     const ai = new GoogleGenAI({ apiKey: token, apiVersion: "v1alpha" });
     ai.live
       .connect({
-        model: "gemini-2.0-flash-live-001",
+        model: "gemini-live-2.5-flash-preview",
         config: {
+          languageCode: "en-US",
           speechConfig: {
             voiceConfig: { prebuiltVoiceConfig: { voiceName: "Charon" } },
           },
@@ -557,6 +558,7 @@ Email: ${session.user.email}
           //   // 2) If you’re also doing function calls, keep your declarations:
           functionDeclarations: [],
           toolConfig: {
+            languageCode: "en-US",
             functionCallingConfig: { mode: FunctionCallingConfigMode.ANY },
             singleUtterance: true,
           },
@@ -958,16 +960,55 @@ Email: ${session.user.email}
   };
 
   return (
-    <div style={{ padding: 20 }}>
-      <button
-        onClick={recording ? stopVoice : startVoice}
-        disabled={!connected}
-      >
-        {recording ? "🛑 Stop" : "🎙️ Talk"}
-      </button>
-      {!connected && (
-        <p style={{ color: "gray", marginTop: 8 }}>Connecting to Gemini…</p>
-      )}
+    <div className="flex flex-col min-h-screen bg-gray-50 dark:bg-[#181818]">
+      {/* Top bar matching chat page style */}
+      <div className="border-b border-gray-200 dark:border-[#3B3B3B] p-4 flex items-center justify-between sticky top-0 z-30">
+        <div className="flex items-center gap-3">
+          <span
+            className={`h-2.5 w-2.5 rounded-full ${
+              recording
+                ? "bg-emerald-500"
+                : connected
+                ? "bg-blue-600"
+                : "bg-slate-400"
+            }`}
+          />
+          <span className="text-sm text-slate-700 dark:text-slate-300">
+            {recording ? "Listening" : connected ? "Connected" : "Connecting…"}
+          </span>
+        </div>
+        <div className="text-[18px] font-medium text-gray-800 dark:text-[#E1E8ED]">
+          Live Assistant
+        </div>
+      </div>
+
+      {/* Center content */}
+      <div className="flex-1 grid place-items-center px-6">
+        <div className="text-center">
+          <button
+            onClick={recording ? stopVoice : startVoice}
+            disabled={!connected && !recording}
+            className="group relative inline-flex items-center justify-center rounded-full border border-gray-200 dark:border-[#3B3B3B] bg-white dark:bg-[#1f1f1f] p-4 shadow-sm transition disabled:opacity-60 hover:bg-gray-100 dark:hover:bg-[#3B3B3B]"
+          >
+              <div
+                className={`relative flex h-16 w-16 items-center justify-center rounded-full ${
+                  recording
+                    ? "bg-emerald-500"
+                    : connected
+                    ? "bg-blue-600"
+                    : "bg-slate-500"
+                } shadow-md`}
+              />
+          </button>
+          <div className="mt-4 text-sm text-slate-600 dark:text-slate-300">
+            {recording
+              ? "Speaking… we’ll auto‑detect when you stop"
+              : connected
+              ? "Tap the mic to talk — we’ll listen and respond in real‑time"
+              : "Connecting to live assistant…"}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
