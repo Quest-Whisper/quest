@@ -837,9 +837,9 @@ Unauthorized copying, distribution, or use of this software is strictly prohibit
   <br/>
   
   <p>
-    <a href="https://questwhisper.com">Website</a> •
+    <a href="https://quest-lime-six.vercel.app/">Website</a> •
     <a href="/privacy-policy">Privacy</a> •
     <a href="/terms-of-service">Terms</a> •
-    <a href="mailto:support@iwhispered.com">Contact</a>
+    <a href="mailto:minyoinosiku@gmail.com">Contact</a>
   </p>
 </div>
