@@ -36,10 +36,10 @@ const QUICK_WHISPER_MCP_API_KEY = process.env.QUICK_WHISPER_MCP_API_KEY;
 if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is required");
 
 const GOOGLE_SEARCH_MCP_SERVER =
-  "https://quest-whisper-mcp-server-service-720003427280.us-central1.run.app/api/google";
+  "https://mcp-red-xi.vercel.app/api/google";
 
 const GOOGLE_WORKSPACE_SERVER =
-  "https://quest-whisper-mcp-server-service-720003427280.us-central1.run.app/api/google-workspace";
+  "https://mcp-red-xi.vercel.app/api/google-workspace";
 
 const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 
